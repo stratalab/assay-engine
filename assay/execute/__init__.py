@@ -80,6 +80,7 @@ __all__ = [
     "run_fixtures",
     "symbolic_problem",
     "symbolically_equal",
+    "symbolically_zero",
 ]
 
 
@@ -984,6 +985,24 @@ def parse_ode(setup: Mapping[str, Any]) -> tuple[Any, Any, Any, str]:
     return lhs.subs(substitution), y, x, dependent
 
 
+def _ivp_number(raw: Any) -> Any:
+    """An initial-value coordinate: a number, or a constant expression string kept
+    EXACT (``"1/3"`` → ``Rational(1, 3)``, not ``Float`` — so dsolve's coefficients
+    stay exact); mirrors the ``point`` grammar of the other multivariable ops."""
+    if isinstance(raw, bool):
+        raise InputError("an ivp value must be a number, not a boolean")
+    if isinstance(raw, int):
+        return sympy.Integer(raw)
+    if isinstance(raw, float):
+        return sympy.Float(raw)
+    if isinstance(raw, str):
+        try:
+            return parse_formula(raw, set())  # exact: "1/3" -> Rational(1, 3)
+        except Exception as exc:
+            raise InputError(f"ivp value {raw!r} is not a constant number: {exc}") from exc
+    raise InputError(f"ivp value {raw!r} must be a number or a constant expression")
+
+
 def _execute_ode_solve(template: Template, setup: Mapping[str, Any]) -> ExecutionResult:
     """Solve a constant-coefficient second-order linear ODE symbolically (E2.17):
     the general solution (two arbitrary constants) or, with ``ivp``, the specific
@@ -996,13 +1015,12 @@ def _execute_ode_solve(template: Template, setup: Mapping[str, Any]) -> Executio
             raise InputError("setup 'ivp' must be a mapping of conditions")
         ics = {}
         for key, pair in ivp.items():
-            if (
-                not isinstance(pair, list)
-                or len(pair) != 2
-                or not all(isinstance(n, int | float) and not isinstance(n, bool) for n in pair)
-            ):
+            if not isinstance(pair, list) or len(pair) != 2:
                 raise InputError(f"ivp[{key!r}] must be [x0, value]")
-            x0, value = sympy.Float(pair[0]), sympy.Float(pair[1])
+            # values may be numbers OR constant expressions ("1/3", "sqrt(2)") — the
+            # latter kept EXACT (chisel round-9 follow-up), so dsolve carries exact
+            # coefficients and the printed form stays exact
+            x0, value = _ivp_number(pair[0]), _ivp_number(pair[1])
             if key == dependent:
                 ics[y.subs(x, x0)] = value
             elif key == f"{dependent}'":
@@ -1532,6 +1550,34 @@ def execute_ir(ir: IR, template: Template) -> ExecutionResult:
     return execute_template(template, ir_input_pairs(ir, template), setup=ir.setup)
 
 
+def symbolically_zero(expression: Any, tol: float = 1e-8) -> bool:
+    """Is ``expression`` identically zero, up to float noise? Exact zero returns fast;
+    otherwise it is sampled at fixed substitutions for every free symbol and each value
+    must sit at the residual ceiling (chisel round-9 follow-up: dsolve carries float
+    coefficients for non-dyadic ICs, so ``19/6`` prints as ``3.16666666666667`` and an
+    exact ``== 0`` wrongly rejects a correct solution). Clearly separates ~1e-15 noise
+    from a real O(1) disagreement."""
+    simplified = sympy.simplify(expression)
+    if simplified == 0:
+        return True
+    free = sorted(simplified.free_symbols, key=str)
+    if not free:
+        try:
+            return abs(complex(sympy.N(simplified))) <= tol
+        except (TypeError, ValueError):
+            return False
+    samples = (0.3, 1.1, -0.7, 1.7, 0.5)
+    for k in range(len(samples)):
+        substitution = {s: sympy.Float(samples[(k + i) % len(samples)]) for i, s in enumerate(free)}
+        try:
+            magnitude = abs(complex(sympy.N(simplified.subs(substitution))))
+        except (TypeError, ValueError):
+            return False
+        if magnitude > tol:
+            return False
+    return True
+
+
 def _check_ode_fixture(
     template: Template, fixture: Any, computed_values: list[float | str], name: str
 ) -> tuple[bool, str]:
@@ -1555,9 +1601,9 @@ def _check_ode_fixture(
         free_vars = [s for s in solution.free_symbols if not _CONSTANT_NAME.match(str(s))]
         if len(free_vars) == 1 and free_vars[0] != x:
             solution = solution.subs(free_vars[0], x)
-        residual = sympy.simplify(ode_expr.subs(y, solution).doit())
+        residual = ode_expr.subs(y, solution).doit()
         constants = [s for s in solution.free_symbols if _CONSTANT_NAME.match(str(s))]
-        return solution, residual == 0, len(constants)
+        return solution, symbolically_zero(residual), len(constants)
 
     computed, comp_ok, comp_n = satisfies(str(computed_values[0]))
     reference, ref_ok, ref_n = satisfies(expected)
@@ -1575,7 +1621,7 @@ def _check_ode_fixture(
         ivp
         and computed is not None
         and reference is not None
-        and sympy.simplify(computed - reference) != 0
+        and not symbolically_zero(computed - reference)
     )
     if unique_mismatch:
         return False, (

@@ -226,6 +226,16 @@ _VERB = re.compile(
     re.IGNORECASE,
 )
 
+# The symbolic operations the deterministic backend can actually SERVE from prose: the
+# ones whose problem is a single free expression, which ``_symbolic_setup`` extracts.
+# Every other symbolic op needs structured setup the bag-of-tokens matcher can't build
+# — a limit point, a variable list, a vector field, a derivative order, an ODE in
+# primed notation — so those are reached through the structured API or the model-backed
+# backend, never guessed from prose. Excluding them from the candidate pool also stops
+# their generic family tokens (ode_solve's "solve", integrate_multiple's "integrate")
+# from colliding with the routes that ARE served (round-9 tripwire).
+_NL_SYMBOLIC_OPS = frozenset({"solve", "integrate", "differentiate"})
+
 _TRAILING_VARIABLE = re.compile(r"\b(?:with\s+respect\s+to|for|in)\s+([A-Za-z]\w*)\s*$")
 
 # "<number> <unit>", where the unit may carry one power (m^4) and one denominator
@@ -295,6 +305,11 @@ class DeterministicBackend:
         head = _head_token(question)
         scored: list[tuple[int, Template]] = []
         for template in catalog:
+            if (
+                isinstance(template.method, SymbolicMethod)
+                and template.method.operation not in _NL_SYMBOLIC_OPS
+            ):
+                continue  # setup isn't extractable from prose — not a matcher candidate
             segments = template.id.split(".")
             family = set(segments[0].split("_")) - _STOP_WORDS
             # a question token counts once: qualifier tokens that repeat a family

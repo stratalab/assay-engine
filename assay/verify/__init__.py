@@ -50,6 +50,7 @@ from assay.execute import (
     parse_formula,
     parse_ode,
     symbolic_problem,
+    symbolically_zero,
 )
 from assay.ir import IR
 from assay.templates import (
@@ -1099,12 +1100,12 @@ def _check_ode_residual(
             name=name, ok=False, detail=f"could not parse the solution: {exc}"
         )
     try:  # substitute y(x) → solution everywhere (derivatives included), then evaluate
-        residual = sympy.simplify(ode_expr.subs(y, solution).doit())
+        residual = ode_expr.subs(y, solution).doit()
     except Exception as exc:
         return VerificationCheck(name=name, ok=False, detail=f"could not substitute: {exc}")
     constants = sorted(str(s) for s in solution.free_symbols if _CONSTANT_NAME.match(str(s)))
     expected_constants = 0 if setup.get("ivp") is not None else 2
-    if residual != 0:
+    if not symbolically_zero(residual):  # tolerant to float-coefficient noise (round-9)
         return VerificationCheck(
             name=name, ok=False,
             detail=f"the solution does not satisfy the ODE (residual {sympy.sstr(residual)})"

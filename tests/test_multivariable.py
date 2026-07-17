@@ -300,6 +300,29 @@ def test_ode_nonhomogeneous_and_applications() -> None:
     assert all(r.ok for r in run_fixtures(template))
 
 
+def test_ode_ivp_float_coefficients_pass() -> None:
+    """Round-9 follow-up: a correct IVP answer whose coefficients aren't short decimals
+    (1/3, 19/6) must pass — the two comparisons are toleranced to the float-residual
+    ceiling, and string IC values (`"1/3"`) are kept exact at the source."""
+    template = _op("ode_solve", "solution", [
+        # motorcycle suspension (m54044): distinct roots, string IC 1/3 — Site 2
+        {"setup": {"equation": "x'' + 20*x' + 96*x = 0", "ivp": {"x": [0, "1/3"], "x'": [0, 10]}},
+         "expect": {"solution": "(7/2)*exp(-8*t) - (19/6)*exp(-12*t)"}},
+        # the same with a decimal IC — the tolerance path (not exact rationals)
+        {"setup": {"equation": "x'' + 20*x' + 96*x = 0",
+                   "ivp": {"x": [0, 0.3333333333333333], "x'": [0, 10]}},
+         "expect": {"solution": "(7/2)*exp(-8*t) - (19/6)*exp(-12*t)"}},
+        # repeated-root IVP (m54040): Site 1 — the float coefficient leaves tiny residual
+        {"setup": {"equation": "25*y'' + 10*y' + y = 0", "ivp": {"y": [0, 2], "y'": [0, 1]}},
+         "expect": {"solution": "2*exp(-x/5) + (7/5)*x*exp(-x/5)"}},
+    ])
+    assert all(r.ok for r in run_fixtures(template))
+    assert verify_execution(
+        template, {},
+        setup={"equation": "25*y'' + 10*y' + y = 0", "ivp": {"y": [0, 2], "y'": [0, 1]}},
+    ).verification.ok
+
+
 def test_ode_wrong_printed_answer_is_caught() -> None:
     """The substitution check gives the expect field teeth: a reference that does not
     satisfy the ODE fails, even though the string is well-formed."""
