@@ -1,0 +1,91 @@
+[project]
+name = "assay"
+version = "0.0.1"
+description = "An open-source, self-contained computational answer engine."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "stratalab" }]
+dependencies = [
+    "pydantic>=2.7",
+    # The compute nucleus starts arriving with the executor (E1.2): safe symbolic
+    # parse/eval (SymPy, BSD-3) + unit-bound evaluation (Pint, BSD-3). Engineering §2.2.
+    "sympy>=1.12",
+    "pint>=0.23",
+    # Rendering (E1.8): deterministic figures from verified data (Matplotlib, BSD-style).
+    "matplotlib>=3.8",
+    # Curated solver bindings (E3.5): root-finding / quadrature / minimize / ODE
+    # (SciPy, BSD-3 — the PRD §15 nucleus).
+    "scipy>=1.13",
+]
+
+[project.optional-dependencies]
+# The production store backend (embedded StrataDB, Apache-2.0 — permissive). Optional until
+# StrataDB's embedded surface is adopted as the default (A-10): `pip install assay[stratadb]`.
+stratadb = ["stratadb>=0.14.5"]
+# The interim NL→IR model binding (E2.1): llama.cpp via llama-cpp-python (MIT), serving a
+# local GGUF model — no network, no provider. Replaced by the embedded Strata inference
+# layer behind the same seam. `pip install assay[llm]`, then `assay ask --llm model.gguf`.
+llm = ["llama-cpp-python>=0.3"]
+# The HTTP API surface (E2.6): FastAPI (MIT) + uvicorn (BSD). `pip install assay[api]`,
+# then `assay serve`.
+api = ["fastapi>=0.110", "uvicorn>=0.29"]
+
+[project.scripts]
+assay = "assay.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/stratalab/assay"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pytest>=8.0",
+    "hypothesis>=6.100",
+    # starlette's TestClient transport (test-only; the package itself never does HTTP)
+    "httpx2>=0.1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["assay"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+strict = true
+warn_unused_ignores = true
+files = ["assay", "scripts", "tests"]
+
+# `stratadb` is an optional backend dependency (gated on StrataDB maturity); its bindings
+# are untyped/absent here. The StrataDBStore adapter coerces its results explicitly.
+# `sympy` ships no type information; the executor treats its expressions as opaque trees
+# and coerces results explicitly. `matplotlib`'s hints are partial; the render module
+# keeps its own surface fully typed and treats figures/axes as opaque. `llama_cpp` is the
+# optional model binding (assay[llm]); the LlamaBackend coerces its responses explicitly.
+[[tool.mypy.overrides]]
+module = [
+    "stratadb", "stratadb.*",
+    "sympy", "sympy.*",
+    "matplotlib", "matplotlib.*",
+    "llama_cpp", "llama_cpp.*",
+    "scipy", "scipy.*",
+]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

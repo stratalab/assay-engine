@@ -1,0 +1,81 @@
+{
+ "id": "beam_deflection.simply_supported.center_point",
+ "domain": "structural_mechanics",
+ "description": "Maximum deflection of a simply supported beam under a center point load.",
+ "inputs": [
+  {
+   "name": "P",
+   "dimension": "force"
+  },
+  {
+   "name": "L",
+   "dimension": "length"
+  },
+  {
+   "name": "E",
+   "dimension": "pressure",
+   "resolve": {
+    "library": "assay.materials",
+    "key": "{material}.E"
+   }
+  },
+  {
+   "name": "I",
+   "dimension": "length**4"
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "P * L**3 / (48 * E * I)"
+ },
+ "output": {
+  "name": "max_deflection",
+  "dimension": "length"
+ },
+ "assumptions": [
+  "euler_bernoulli",
+  "linear_elastic",
+  "small_deflection",
+  "center_point_load"
+ ],
+ "verification": {
+  "bounds": {
+   "min": 0.0,
+   "max": 10.0,
+   "unit": "m"
+  }
+ },
+ "fixtures": [
+  {
+   "inputs": {
+    "P": [
+     1200,
+     "N"
+    ],
+    "L": [
+     3,
+     "m"
+    ],
+    "E": [
+     200,
+     "GPa"
+    ],
+    "I": [
+     1e-05,
+     "m**4"
+    ]
+   },
+   "expect": {
+    "max_deflection": [
+     0.00033749999999999996,
+     "m"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

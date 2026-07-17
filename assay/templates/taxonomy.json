@@ -1,0 +1,103 @@
+{
+ "version": "0.1",
+ "note": "The catalog taxonomy over the public DEMO catalog: subject -> topic -> domains. The full curated corpus lives in a private content repository; it loads through the same seam and extends this file.",
+ "subjects": {
+  "mathematics": {
+   "title": "Mathematics",
+   "topics": {
+    "algebra": {
+     "title": "Algebra",
+     "domains": [
+      "algebra"
+     ]
+    },
+    "calculus": {
+     "title": "Calculus",
+     "domains": [
+      "calculus",
+      "differential_equations"
+     ]
+    },
+    "numerical_methods": {
+     "title": "Numerical methods",
+     "domains": [
+      "numerical_methods"
+     ]
+    },
+    "optimization": {
+     "title": "Optimization",
+     "domains": [
+      "optimization"
+     ]
+    },
+    "statistics": {
+     "title": "Statistics & probability",
+     "domains": [
+      "statistics"
+     ]
+    }
+   }
+  },
+  "physics": {
+   "title": "Physics",
+   "topics": {
+    "mechanics": {
+     "title": "Mechanics",
+     "domains": [
+      "dynamics",
+      "oscillations",
+      "kinematics",
+      "gravitation"
+     ]
+    },
+    "electromagnetism": {
+     "title": "Electromagnetism",
+     "domains": [
+      "electromagnetism"
+     ]
+    },
+    "waves": {
+     "title": "Waves",
+     "domains": [
+      "waves"
+     ]
+    },
+    "thermodynamics": {
+     "title": "Thermodynamics",
+     "domains": [
+      "thermodynamics"
+     ]
+    }
+   }
+  },
+  "engineering": {
+   "title": "Engineering",
+   "topics": {
+    "structures": {
+     "title": "Structures & materials",
+     "domains": [
+      "structural_mechanics",
+      "materials"
+     ]
+    },
+    "control": {
+     "title": "Control systems",
+     "domains": [
+      "control"
+     ]
+    }
+   }
+  },
+  "chemistry": {
+   "title": "Chemistry",
+   "topics": {
+    "general_chemistry": {
+     "title": "General chemistry",
+     "domains": [
+      "chemistry"
+     ]
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,52 @@
+{
+ "schema_version": 2,
+ "id": "equivalent_resistance.series",
+ "domain": "electromagnetism",
+ "description": "Equivalent resistance of N resistors in series (list input + reducer).",
+ "inputs": [
+  {
+   "name": "R_i",
+   "dimension": "resistance",
+   "many": true
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "sum(R_i)"
+ },
+ "output": {
+  "name": "equivalent_resistance",
+  "dimension": "resistance"
+ },
+ "fixtures": [
+  {
+   "inputs": {
+    "R_i": [
+     [
+      10,
+      "ohm"
+     ],
+     [
+      20,
+      "ohm"
+     ],
+     [
+      30,
+      "ohm"
+     ]
+    ]
+   },
+   "expect": {
+    "equivalent_resistance": [
+     60.0,
+     "ohm"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

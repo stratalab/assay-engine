@@ -1,0 +1,64 @@
+{
+ "id": "gravitational_potential_energy.point_mass",
+ "domain": "dynamics",
+ "description": "Gravitational potential energy near a surface, U = m g h.",
+ "inputs": [
+  {
+   "name": "m",
+   "dimension": "mass"
+  },
+  {
+   "name": "h",
+   "dimension": "length"
+  },
+  {
+   "name": "g",
+   "dimension": "acceleration",
+   "resolve": {
+    "library": "assay.constants",
+    "key": "g"
+   },
+   "required": false
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "m * g * h"
+ },
+ "output": {
+  "name": "potential_energy",
+  "dimension": "energy"
+ },
+ "assumptions": [
+  "u_zero_where_height_zero"
+ ],
+ "fixtures": [
+  {
+   "inputs": {
+    "m": [
+     10,
+     "kg"
+    ],
+    "h": [
+     5,
+     "m"
+    ],
+    "g": [
+     9.80665,
+     "m/s**2"
+    ]
+   },
+   "expect": {
+    "potential_energy": [
+     490.3325,
+     "J"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

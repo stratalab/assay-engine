@@ -1,0 +1,56 @@
+{
+ "id": "pendulum.period.simple",
+ "domain": "oscillations",
+ "description": "Period of a simple pendulum (small-angle).",
+ "inputs": [
+  {
+   "name": "L",
+   "dimension": "length"
+  },
+  {
+   "name": "g",
+   "dimension": "acceleration",
+   "resolve": {
+    "library": "assay.constants",
+    "key": "g"
+   },
+   "required": false
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "2 * pi * sqrt(L / g)"
+ },
+ "output": {
+  "name": "period",
+  "dimension": "time"
+ },
+ "assumptions": [
+  "small_angle"
+ ],
+ "fixtures": [
+  {
+   "inputs": {
+    "L": [
+     1,
+     "m"
+    ],
+    "g": [
+     9.80665,
+     "m/s**2"
+    ]
+   },
+   "expect": {
+    "period": [
+     2.0064092925890407,
+     "s"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

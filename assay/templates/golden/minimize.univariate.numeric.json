@@ -1,0 +1,35 @@
+{
+ "id": "minimize.univariate.numeric",
+ "domain": "optimization",
+ "description": "Bounded scalar minimization.",
+ "method": {
+  "kind": "solver",
+  "binding": "minimize.scalar_bounded"
+ },
+ "output": {
+  "name": "minimizer",
+  "dimension": "dimensionless"
+ },
+ "fixtures": [
+  {
+   "setup": {
+    "expression": "(x - 2)**2 + 1",
+    "bounds": [
+     0,
+     5
+    ]
+   },
+   "expect": {
+    "minimizer": [
+     2.0,
+     ""
+    ]
+   },
+   "tol": 1e-06
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

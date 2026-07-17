@@ -1,0 +1,42 @@
+{
+  "library": "assay.materials",
+  "version": "0.1",
+  "facts": {
+    "steel.structural.E": {
+      "value": 200e9,
+      "unit": "Pa",
+      "source": "elastic modulus, typical structural steel (standard engineering reference value)",
+      "license": "public-domain"
+    },
+    "steel.structural.density": {
+      "value": 7850,
+      "unit": "kg/m**3",
+      "source": "density, typical structural steel (standard engineering reference value)",
+      "license": "public-domain"
+    },
+    "steel.structural.poisson": {
+      "value": 0.3,
+      "unit": "",
+      "source": "Poisson's ratio, typical structural steel (standard engineering reference value)",
+      "license": "public-domain"
+    },
+    "aluminum.6061_t6.E": {
+      "value": 68.9e9,
+      "unit": "Pa",
+      "source": "elastic modulus, aluminum 6061-T6 (standard engineering reference value)",
+      "license": "public-domain"
+    },
+    "aluminum.6061_t6.density": {
+      "value": 2700,
+      "unit": "kg/m**3",
+      "source": "density, aluminum 6061-T6 (standard engineering reference value)",
+      "license": "public-domain"
+    },
+    "water.liquid.c_p": {
+      "value": 4186,
+      "unit": "J/(kg*K)",
+      "source": "specific heat capacity, liquid water near 20 °C (standard engineering reference value)",
+      "license": "public-domain"
+    }
+  }
+}

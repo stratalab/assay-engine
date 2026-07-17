@@ -1,0 +1,35 @@
+{
+ "id": "integrate.univariate",
+ "domain": "calculus",
+ "description": "Indefinite integral of a univariate expression.",
+ "method": {
+  "kind": "symbolic",
+  "operation": "integrate"
+ },
+ "output": {
+  "name": "antiderivative",
+  "dimension": "dimensionless"
+ },
+ "fixtures": [
+  {
+   "setup": {
+    "expression": "3*x**2"
+   },
+   "expect": {
+    "antiderivative": "x**3"
+   }
+  },
+  {
+   "setup": {
+    "expression": "cos(x)"
+   },
+   "expect": {
+    "antiderivative": "sin(x)"
+   }
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

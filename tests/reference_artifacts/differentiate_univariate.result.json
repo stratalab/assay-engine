@@ -1,0 +1,105 @@
+{
+  "artifact_version": 1,
+  "ir": {
+    "assay_version": "",
+    "ir_version": 1,
+    "query": "",
+    "produced_by": null,
+    "domain": "calculus",
+    "task": "differentiate.univariate",
+    "setup": {
+      "expression": "x**3 - x"
+    },
+    "inputs": {},
+    "missing_inputs": [],
+    "solve_for": null,
+    "given_output": null,
+    "resolved": {},
+    "assumptions": [],
+    "execution_plan": [],
+    "outputs": [],
+    "render": null
+  },
+  "template": {
+    "schema_version": 1,
+    "id": "differentiate.univariate",
+    "domain": "calculus",
+    "description": "Derivative of a univariate expression.",
+    "inputs": [],
+    "method": {
+      "kind": "symbolic",
+      "operation": "differentiate"
+    },
+    "output": {
+      "name": "derivative",
+      "dimension": "dimensionless"
+    },
+    "extra_outputs": [],
+    "assumptions": [],
+    "execution_plan": [],
+    "verification": {
+      "bounds": null,
+      "cross_method": null
+    },
+    "fixtures": [
+      {
+        "setup": {
+          "expression": "x**4 - 2*x"
+        },
+        "inputs": {},
+        "expect": {
+          "derivative": "4*x**3 - 2"
+        },
+        "tol": 1e-6,
+        "solve_for": null,
+        "output": null
+      }
+    ],
+    "provenance": {
+      "source": "assay:demo",
+      "license_tier": "open",
+      "status": "candidate"
+    }
+  },
+  "answer": {
+    "result": [
+      {
+        "label": "derivative",
+        "value": "3*x**2 - 1",
+        "unit": ""
+      }
+    ],
+    "interpretation": "Derivative of a univariate expression. · expression = x**3 - x",
+    "method": "differentiate (SymPy)",
+    "steps": [],
+    "facts": [],
+    "verified": {
+      "ok": true,
+      "checks": [
+        {
+          "name": "difference-quotient",
+          "ok": true,
+          "detail": "central difference matches the derivative at 3 sample points"
+        }
+      ]
+    },
+    "figure": null,
+    "ir_hash": "4aac202b82f9e5af45c7fbd2b77981f51898f1c5a126fcc3d5b73175653c7995",
+    "assay_version": "0.0.1",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  },
+  "environment": {
+    "assay_version": "0.0.1",
+    "python": "3.12.3",
+    "platform": "Linux-6.17.0-35-generic-x86_64-with-glibc2.39",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  }
+}

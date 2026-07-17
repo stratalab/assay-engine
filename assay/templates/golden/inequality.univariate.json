@@ -1,0 +1,35 @@
+{
+ "id": "inequality.univariate",
+ "domain": "algebra",
+ "description": "Solve a univariate inequality; the answer is interval notation.",
+ "method": {
+  "kind": "symbolic",
+  "operation": "solve_inequality"
+ },
+ "output": {
+  "name": "solution_set",
+  "dimension": "dimensionless"
+ },
+ "fixtures": [
+  {
+   "setup": {
+    "expression": "3*x - 6 < 0"
+   },
+   "expect": {
+    "solution_set": "(-oo, 2)"
+   }
+  },
+  {
+   "setup": {
+    "expression": "x**2 >= 1"
+   },
+   "expect": {
+    "solution_set": "(-oo, -1] U [1, oo)"
+   }
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

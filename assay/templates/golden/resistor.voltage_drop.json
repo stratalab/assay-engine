@@ -1,0 +1,48 @@
+{
+ "id": "resistor.voltage_drop",
+ "domain": "electromagnetism",
+ "description": "Voltage across a resistor (Ohm's law), V = I R.",
+ "inputs": [
+  {
+   "name": "I",
+   "dimension": "current"
+  },
+  {
+   "name": "R",
+   "dimension": "resistance"
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "I * R"
+ },
+ "output": {
+  "name": "voltage",
+  "dimension": "electric_potential"
+ },
+ "fixtures": [
+  {
+   "inputs": {
+    "I": [
+     0.25,
+     "A"
+    ],
+    "R": [
+     200,
+     "ohm"
+    ]
+   },
+   "expect": {
+    "voltage": [
+     50.0,
+     "V"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

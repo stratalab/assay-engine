@@ -1,0 +1,60 @@
+{
+ "id": "heat.sensible",
+ "domain": "thermodynamics",
+ "description": "Sensible heat to change a mass's temperature, Q = m c_p dT.",
+ "inputs": [
+  {
+   "name": "m",
+   "dimension": "mass"
+  },
+  {
+   "name": "c_p",
+   "dimension": "energy/mass/temperature",
+   "resolve": {
+    "library": "assay.materials",
+    "key": "{material}.c_p"
+   }
+  },
+  {
+   "name": "dT",
+   "dimension": "temperature"
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "m * c_p * dT"
+ },
+ "output": {
+  "name": "heat",
+  "dimension": "energy"
+ },
+ "fixtures": [
+  {
+   "inputs": {
+    "m": [
+     3,
+     "kg"
+    ],
+    "c_p": [
+     4186,
+     "J/(kg*K)"
+    ],
+    "dT": [
+     5,
+     "K"
+    ]
+   },
+   "expect": {
+    "heat": [
+     62790,
+     "J"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

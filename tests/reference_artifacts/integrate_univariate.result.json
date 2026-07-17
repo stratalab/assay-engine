@@ -1,0 +1,118 @@
+{
+  "artifact_version": 1,
+  "ir": {
+    "assay_version": "",
+    "ir_version": 1,
+    "query": "",
+    "produced_by": null,
+    "domain": "calculus",
+    "task": "integrate.univariate",
+    "setup": {
+      "expression": "sin(x)**2",
+      "variable": "x"
+    },
+    "inputs": {},
+    "missing_inputs": [],
+    "solve_for": null,
+    "given_output": null,
+    "resolved": {},
+    "assumptions": [],
+    "execution_plan": [],
+    "outputs": [],
+    "render": null
+  },
+  "template": {
+    "schema_version": 1,
+    "id": "integrate.univariate",
+    "domain": "calculus",
+    "description": "Indefinite integral of a univariate expression.",
+    "inputs": [],
+    "method": {
+      "kind": "symbolic",
+      "operation": "integrate"
+    },
+    "output": {
+      "name": "antiderivative",
+      "dimension": "dimensionless"
+    },
+    "extra_outputs": [],
+    "assumptions": [],
+    "execution_plan": [],
+    "verification": {
+      "bounds": null,
+      "cross_method": null
+    },
+    "fixtures": [
+      {
+        "setup": {
+          "expression": "3*x**2"
+        },
+        "inputs": {},
+        "expect": {
+          "antiderivative": "x**3"
+        },
+        "tol": 1e-6,
+        "solve_for": null,
+        "output": null
+      },
+      {
+        "setup": {
+          "expression": "cos(x)"
+        },
+        "inputs": {},
+        "expect": {
+          "antiderivative": "sin(x)"
+        },
+        "tol": 1e-6,
+        "solve_for": null,
+        "output": null
+      }
+    ],
+    "provenance": {
+      "source": "assay:demo",
+      "license_tier": "open",
+      "status": "candidate"
+    }
+  },
+  "answer": {
+    "result": [
+      {
+        "label": "antiderivative",
+        "value": "x/2 - sin(x)*cos(x)/2",
+        "unit": ""
+      }
+    ],
+    "interpretation": "Indefinite integral of a univariate expression. · expression = sin(x)**2 · variable = x",
+    "method": "integrate (SymPy)",
+    "steps": [],
+    "facts": [],
+    "verified": {
+      "ok": true,
+      "checks": [
+        {
+          "name": "derivative",
+          "ok": true,
+          "detail": "d/dx of the antiderivative equals the integrand"
+        }
+      ]
+    },
+    "figure": null,
+    "ir_hash": "201684ee6ac321f10db5fccd28114afa0af06a371416bfd3c1875052e7e909f8",
+    "assay_version": "0.0.1",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  },
+  "environment": {
+    "assay_version": "0.0.1",
+    "python": "3.12.3",
+    "platform": "Linux-6.17.0-35-generic-x86_64-with-glibc2.39",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  }
+}

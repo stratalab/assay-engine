@@ -1,0 +1,48 @@
+{
+ "id": "axial_stress.bar",
+ "domain": "materials",
+ "description": "Axial (normal) stress in a bar under axial load.",
+ "inputs": [
+  {
+   "name": "F",
+   "dimension": "force"
+  },
+  {
+   "name": "A",
+   "dimension": "area"
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "F / A"
+ },
+ "output": {
+  "name": "stress",
+  "dimension": "pressure"
+ },
+ "fixtures": [
+  {
+   "inputs": {
+    "F": [
+     5000,
+     "N"
+    ],
+    "A": [
+     0.001,
+     "m**2"
+    ]
+   },
+   "expect": {
+    "stress": [
+     5.0,
+     "MPa"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

@@ -1,0 +1,114 @@
+{
+ "library": "assay.constants",
+ "version": "0.5",
+ "facts": {
+  "g": {
+   "value": 9.80665,
+   "unit": "m/s**2",
+   "source": "standard gravity, exact by definition (3rd CGPM 1901; BIPM)",
+   "license": "public-domain"
+  },
+  "c": {
+   "value": 299792458,
+   "unit": "m/s",
+   "source": "speed of light in vacuum, exact SI defining constant (BIPM SI Brochure, 9th ed.)",
+   "license": "public-domain"
+  },
+  "R": {
+   "value": 8.31446261815324,
+   "unit": "J/(mol*K)",
+   "source": "molar gas constant, exact (derived from SI defining constants N_A and k)",
+   "license": "public-domain"
+  },
+  "N_A": {
+   "value": 6.02214076e+23,
+   "unit": "1/mol",
+   "source": "Avogadro constant, exact SI defining constant (BIPM SI Brochure, 9th ed.)",
+   "license": "public-domain"
+  },
+  "G": {
+   "value": 6.6743e-11,
+   "unit": "m**3/(kg*s**2)",
+   "source": "Newtonian constant of gravitation (CODATA recommended value)",
+   "license": "public-domain"
+  },
+  "epsilon_0": {
+   "value": 8.8541878128e-12,
+   "unit": "F/m",
+   "source": "vacuum electric permittivity (CODATA recommended value)",
+   "license": "public-domain"
+  },
+  "k_e": {
+   "value": 8987551792.3,
+   "unit": "N*m**2/C**2",
+   "source": "Coulomb constant, 1/(4*pi*epsilon_0) (CODATA-derived value)",
+   "license": "public-domain"
+  },
+  "k_B": {
+   "value": 1.380649e-23,
+   "unit": "J/K",
+   "source": "Boltzmann constant, exact SI defining constant (BIPM SI Brochure, 9th ed.)",
+   "license": "public-domain"
+  },
+  "sigma_sb": {
+   "value": 5.670374419e-08,
+   "unit": "W/(m**2*K**4)",
+   "source": "Stefan-Boltzmann constant, exact (derived from SI defining constants)",
+   "license": "public-domain"
+  },
+  "mu_0": {
+   "value": 1.25663706212e-06,
+   "unit": "N/A**2",
+   "source": "vacuum magnetic permeability (CODATA recommended value)",
+   "license": "public-domain"
+  },
+  "h": {
+   "value": 6.62607015e-34,
+   "unit": "J*s",
+   "source": "Planck constant, exact SI defining constant (BIPM SI Brochure, 9th ed.)",
+   "license": "public-domain"
+  },
+  "hbar": {
+   "value": 1.054571817e-34,
+   "unit": "J*s",
+   "source": "reduced Planck constant, h/(2*pi), exact-derived (BIPM SI Brochure, 9th ed.)",
+   "license": "public-domain"
+  },
+  "m_e": {
+   "value": 9.1093837015e-31,
+   "unit": "kg",
+   "source": "electron rest mass (CODATA recommended value)",
+   "license": "public-domain"
+  },
+  "m_p": {
+   "value": 1.67262192369e-27,
+   "unit": "kg",
+   "source": "proton rest mass (CODATA recommended value)",
+   "license": "public-domain"
+  },
+  "R_H": {
+   "value": 10973731.56816,
+   "unit": "1/m",
+   "source": "Rydberg constant R_infinity (CODATA recommended value)",
+   "license": "public-domain"
+  },
+  "a_0": {
+   "value": 5.29177210903e-11,
+   "unit": "m",
+   "source": "Bohr radius (CODATA recommended value)",
+   "license": "public-domain"
+  },
+  "H_0": {
+   "value": 70.0,
+   "unit": "km/s/Mpc",
+   "source": "Hubble constant, pedagogical convention value (measured, not exact; surveys range ~67-73 km/s/Mpc)",
+   "license": "public-domain"
+  },
+  "F": {
+   "value": 96485.33212,
+   "unit": "C/mol",
+   "source": "Faraday constant, exact (N_A * e, SI defining constants; BIPM SI Brochure, 9th ed.)",
+   "license": "public-domain"
+  }
+ }
+}

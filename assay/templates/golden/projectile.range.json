@@ -1,0 +1,65 @@
+{
+ "id": "projectile.range",
+ "domain": "kinematics",
+ "description": "Range of a projectile on level ground (no drag).",
+ "inputs": [
+  {
+   "name": "v",
+   "dimension": "speed"
+  },
+  {
+   "name": "theta",
+   "dimension": "dimensionless"
+  },
+  {
+   "name": "g",
+   "dimension": "acceleration",
+   "resolve": {
+    "library": "assay.constants",
+    "key": "g"
+   },
+   "required": false
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "v**2 * sin(2 * theta) / g"
+ },
+ "output": {
+  "name": "range",
+  "dimension": "length"
+ },
+ "assumptions": [
+  "level_ground",
+  "no_drag"
+ ],
+ "fixtures": [
+  {
+   "inputs": {
+    "v": [
+     20,
+     "m/s"
+    ],
+    "theta": [
+     0.5235987755982988,
+     "rad"
+    ],
+    "g": [
+     9.80665,
+     "m/s**2"
+    ]
+   },
+   "expect": {
+    "range": [
+     35.32400580358996,
+     "m"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

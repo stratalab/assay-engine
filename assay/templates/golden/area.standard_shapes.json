@@ -1,0 +1,72 @@
+{
+ "schema_version": 2,
+ "id": "area.standard_shapes",
+ "domain": "algebra",
+ "description": "Area of standard shapes, selected by a cases discriminator.",
+ "inputs": [
+  {
+   "name": "s",
+   "dimension": "length",
+   "required": false
+  },
+  {
+   "name": "r",
+   "dimension": "length",
+   "required": false
+  }
+ ],
+ "method": {
+  "kind": "cases",
+  "discriminator": "shape",
+  "cases": {
+   "square": "s**2",
+   "circle": "pi * r**2"
+  }
+ },
+ "output": {
+  "name": "area",
+  "dimension": "area"
+ },
+ "fixtures": [
+  {
+   "setup": {
+    "shape": "square"
+   },
+   "inputs": {
+    "s": [
+     3,
+     "m"
+    ]
+   },
+   "expect": {
+    "area": [
+     9.0,
+     "m**2"
+    ]
+   },
+   "tol": 1e-09
+  },
+  {
+   "setup": {
+    "shape": "circle"
+   },
+   "inputs": {
+    "r": [
+     2,
+     "m"
+    ]
+   },
+   "expect": {
+    "area": [
+     12.566370614359172,
+     "m**2"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

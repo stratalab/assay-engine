@@ -1,0 +1,35 @@
+{
+ "id": "root_find.univariate.numeric",
+ "domain": "numerical_methods",
+ "description": "Bracketed numeric root of a univariate expression (Brent).",
+ "method": {
+  "kind": "solver",
+  "binding": "root_find.brentq"
+ },
+ "output": {
+  "name": "root",
+  "dimension": "dimensionless"
+ },
+ "fixtures": [
+  {
+   "setup": {
+    "expression": "x**3 - 10",
+    "bracket": [
+     1,
+     3
+    ]
+   },
+   "expect": {
+    "root": [
+     2.154434690031884,
+     ""
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

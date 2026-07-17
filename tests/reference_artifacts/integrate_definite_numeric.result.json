@@ -1,0 +1,116 @@
+{
+  "artifact_version": 1,
+  "ir": {
+    "assay_version": "",
+    "ir_version": 1,
+    "query": "",
+    "produced_by": null,
+    "domain": "calculus",
+    "task": "integrate.definite.numeric",
+    "setup": {
+      "expression": "exp(-x**2)",
+      "limits": [
+        0,
+        1
+      ]
+    },
+    "inputs": {},
+    "missing_inputs": [],
+    "solve_for": null,
+    "given_output": null,
+    "resolved": {},
+    "assumptions": [],
+    "execution_plan": [],
+    "outputs": [],
+    "render": null
+  },
+  "template": {
+    "schema_version": 1,
+    "id": "integrate.definite.numeric",
+    "domain": "calculus",
+    "description": "Definite integral by adaptive quadrature.",
+    "inputs": [],
+    "method": {
+      "kind": "solver",
+      "binding": "integrate.quad"
+    },
+    "output": {
+      "name": "integral",
+      "dimension": "dimensionless"
+    },
+    "extra_outputs": [],
+    "assumptions": [],
+    "execution_plan": [],
+    "verification": {
+      "bounds": null,
+      "cross_method": null
+    },
+    "fixtures": [
+      {
+        "setup": {
+          "expression": "x**2",
+          "limits": [
+            0,
+            3
+          ]
+        },
+        "inputs": {},
+        "expect": {
+          "integral": [
+            9.0,
+            ""
+          ]
+        },
+        "tol": 1e-9,
+        "solve_for": null,
+        "output": null
+      }
+    ],
+    "provenance": {
+      "source": "assay:demo",
+      "license_tier": "open",
+      "status": "candidate"
+    }
+  },
+  "answer": {
+    "result": [
+      {
+        "label": "integral",
+        "value": 0.7468241328124271,
+        "unit": ""
+      }
+    ],
+    "interpretation": "Definite integral by adaptive quadrature. · expression = exp(-x**2)",
+    "method": "solver: integrate.quad",
+    "steps": [],
+    "facts": [],
+    "verified": {
+      "ok": true,
+      "checks": [
+        {
+          "name": "cross-method:simpson",
+          "ok": true,
+          "detail": "adaptive quadrature 0.7468241328 vs Simpson 0.7468241328"
+        }
+      ]
+    },
+    "figure": null,
+    "ir_hash": "541a83061e0d72d5ebafd44c52ee68a8ea7046f60c01a9210a62399cae080f70",
+    "assay_version": "0.0.1",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  },
+  "environment": {
+    "assay_version": "0.0.1",
+    "python": "3.12.3",
+    "platform": "Linux-6.17.0-35-generic-x86_64-with-glibc2.39",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  }
+}

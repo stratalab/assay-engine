@@ -1,0 +1,212 @@
+{
+  "artifact_version": 1,
+  "ir": {
+    "assay_version": "",
+    "ir_version": 1,
+    "query": "",
+    "produced_by": null,
+    "domain": "structural_mechanics",
+    "task": "beam_deflection.simply_supported.center_point",
+    "setup": {
+      "material": "steel.structural"
+    },
+    "inputs": {
+      "P": {
+        "value": 5000.0,
+        "unit": "N"
+      },
+      "L": {
+        "value": 2.0,
+        "unit": "m"
+      },
+      "I": {
+        "value": 8.33e-6,
+        "unit": "m**4"
+      }
+    },
+    "missing_inputs": [],
+    "solve_for": null,
+    "given_output": null,
+    "resolved": {
+      "E": {
+        "value": 200000000000.0,
+        "unit": "Pa",
+        "source": {
+          "library": "assay.materials",
+          "key": "steel.structural.E",
+          "version": "0.1"
+        }
+      }
+    },
+    "assumptions": [],
+    "execution_plan": [],
+    "outputs": [],
+    "render": null
+  },
+  "template": {
+    "schema_version": 1,
+    "id": "beam_deflection.simply_supported.center_point",
+    "domain": "structural_mechanics",
+    "description": "Maximum deflection of a simply supported beam under a center point load.",
+    "inputs": [
+      {
+        "many": false,
+        "name": "P",
+        "dimension": "force",
+        "required": true,
+        "resolve": null
+      },
+      {
+        "many": false,
+        "name": "L",
+        "dimension": "length",
+        "required": true,
+        "resolve": null
+      },
+      {
+        "many": false,
+        "name": "E",
+        "dimension": "pressure",
+        "required": true,
+        "resolve": {
+          "library": "assay.materials",
+          "key": "{material}.E"
+        }
+      },
+      {
+        "many": false,
+        "name": "I",
+        "dimension": "length**4",
+        "required": true,
+        "resolve": null
+      }
+    ],
+    "method": {
+      "kind": "formula",
+      "expr": "P * L**3 / (48 * E * I)",
+      "steps": []
+    },
+    "output": {
+      "name": "max_deflection",
+      "dimension": "length"
+    },
+    "extra_outputs": [],
+    "assumptions": [
+      "euler_bernoulli",
+      "linear_elastic",
+      "small_deflection",
+      "center_point_load"
+    ],
+    "execution_plan": [],
+    "verification": {
+      "bounds": {
+        "min": 0.0,
+        "max": 10.0,
+        "unit": "m"
+      },
+      "cross_method": null
+    },
+    "fixtures": [
+      {
+        "setup": {},
+        "inputs": {
+          "P": [
+            1200.0,
+            "N"
+          ],
+          "L": [
+            3.0,
+            "m"
+          ],
+          "E": [
+            200.0,
+            "GPa"
+          ],
+          "I": [
+            0.00001,
+            "m**4"
+          ]
+        },
+        "expect": {
+          "max_deflection": [
+            0.00033749999999999996,
+            "m"
+          ]
+        },
+        "tol": 1e-9,
+        "solve_for": null,
+        "output": null
+      }
+    ],
+    "provenance": {
+      "source": "assay:demo",
+      "license_tier": "open",
+      "status": "candidate"
+    }
+  },
+  "answer": {
+    "result": [
+      {
+        "label": "max_deflection",
+        "value": 0.0005002000800320127,
+        "unit": "meter"
+      }
+    ],
+    "interpretation": "Maximum deflection of a simply supported beam under a center point load. · material = steel.structural · euler_bernoulli · linear_elastic · small_deflection · center_point_load",
+    "method": "P * L**3 / (48 * E * I)",
+    "steps": [
+      {
+        "label": "max_deflection",
+        "expr": "P * L**3 / (48 * E * I)",
+        "value": 0.0005002000800320127,
+        "unit": "meter",
+        "note": ""
+      }
+    ],
+    "facts": [
+      {
+        "name": "E",
+        "value": 200000000000.0,
+        "unit": "Pa",
+        "source": {
+          "library": "assay.materials",
+          "key": "steel.structural.E",
+          "version": "0.1"
+        }
+      }
+    ],
+    "verified": {
+      "ok": true,
+      "checks": [
+        {
+          "name": "dimension:length",
+          "ok": true,
+          "detail": "result dimension matches the declared output (meter)"
+        },
+        {
+          "name": "bounds",
+          "ok": true,
+          "detail": "0.0005002 m within the plausible range [0, 10] m"
+        }
+      ]
+    },
+    "figure": null,
+    "ir_hash": "e2fa6fbf347bd098ac5199c6244483f9d44f447a735acfdfc14345d79c7e9918",
+    "assay_version": "0.0.1",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  },
+  "environment": {
+    "assay_version": "0.0.1",
+    "python": "3.12.3",
+    "platform": "Linux-6.17.0-35-generic-x86_64-with-glibc2.39",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  }
+}

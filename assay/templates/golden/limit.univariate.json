@@ -1,0 +1,41 @@
+{
+ "id": "limit.univariate",
+ "domain": "calculus",
+ "description": "Limit of a univariate expression at a point or infinity.",
+ "method": {
+  "kind": "symbolic",
+  "operation": "limit"
+ },
+ "output": {
+  "name": "limit_value",
+  "dimension": "dimensionless"
+ },
+ "fixtures": [
+  {
+   "setup": {
+    "expression": "sin(x)/x",
+    "point": 0
+   },
+   "expect": {
+    "limit_value": [
+     1.0
+    ]
+   }
+  },
+  {
+   "setup": {
+    "expression": "1/x",
+    "point": "oo"
+   },
+   "expect": {
+    "limit_value": [
+     0.0
+    ]
+   }
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

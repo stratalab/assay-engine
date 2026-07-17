@@ -1,0 +1,130 @@
+{
+ "version": "0.1",
+ "note": "The coverage map over the public DEMO catalog (subject -> field -> topic; CIP-2020-anchored). Statuses describe the demo set only; the full curated corpus and its coverage map live in the private content repository.",
+ "statuses": [
+  "pending",
+  "in-progress",
+  "complete"
+ ],
+ "taxonomy_references": {
+  "cip": "CIP 2020, NCES (nces.ed.gov/ipeds/cipcode) — public domain",
+  "engineering_scope": "NCEES FE exam specifications (ncees.org)"
+ },
+ "subjects": {
+  "mathematics": {
+   "title": "Mathematics",
+   "cip": "27",
+   "fields": {
+    "algebra_and_calculus": {
+     "title": "Algebra & calculus",
+     "cip": [
+      "27.0101",
+      "27.0102"
+     ],
+     "topics": {
+      "symbolic_operations": {
+       "status": "in-progress",
+       "domains": [
+        "algebra",
+        "calculus",
+        "differential_equations"
+       ],
+       "source": "demo catalog — the full curated corpus is developed in a separate private content repository and loads through this same seam"
+      }
+     }
+    },
+    "numerical_and_statistics": {
+     "title": "Numerical methods & statistics",
+     "cip": [
+      "27.0303",
+      "27.0501"
+     ],
+     "topics": {
+      "solvers_and_statistics": {
+       "status": "in-progress",
+       "domains": [
+        "numerical_methods",
+        "optimization",
+        "statistics"
+       ],
+       "source": "demo catalog — the full curated corpus is developed in a separate private content repository and loads through this same seam"
+      }
+     }
+    }
+   }
+  },
+  "physics": {
+   "title": "Physics",
+   "cip": "40.08",
+   "fields": {
+    "mechanics": {
+     "title": "Mechanics",
+     "cip": [
+      "40.0801"
+     ],
+     "topics": {
+      "mechanics_demo": {
+       "status": "in-progress",
+       "domains": [
+        "dynamics",
+        "oscillations",
+        "electromagnetism",
+        "kinematics",
+        "gravitation",
+        "waves",
+        "thermodynamics"
+       ],
+       "source": "demo catalog — the full curated corpus is developed in a separate private content repository and loads through this same seam"
+      }
+     }
+    }
+   }
+  },
+  "engineering": {
+   "title": "Engineering",
+   "cip": "14",
+   "fields": {
+    "structures": {
+     "title": "Structures & materials",
+     "cip": [
+      "14.0801",
+      "14.1101"
+     ],
+     "scope_reference": "NCEES FE Civil/Mechanical (statics, mechanics of materials)",
+     "topics": {
+      "structures_demo": {
+       "status": "in-progress",
+       "domains": [
+        "structural_mechanics",
+        "materials",
+        "control"
+       ],
+       "source": "demo catalog — the full curated corpus is developed in a separate private content repository and loads through this same seam"
+      }
+     }
+    }
+   }
+  },
+  "chemistry": {
+   "title": "Chemistry",
+   "cip": "40.05",
+   "fields": {
+    "general_chemistry": {
+     "title": "General chemistry",
+     "cip": [
+      "40.0501"
+     ],
+     "topics": {
+      "chemistry_demo": {
+       "status": "in-progress",
+       "domains": [
+        "chemistry"
+       ],
+       "source": "demo catalog — the full curated corpus is developed in a separate private content repository and loads through this same seam"
+      }
+     }
+    }
+   }
+  }
+ }
+}

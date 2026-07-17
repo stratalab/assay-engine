@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# NFR-1 hygiene: the compute path must not depend on BLAS threading or hash seeds —
+# pinned here so CI runs are maximally deterministic (tests separately PROVE
+# hash-seed independence via subprocesses with contradictory seeds).
+env:
+  OPENBLAS_NUM_THREADS: "1"
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Sync (incl. the StrataDB backend + the HTTP API, so their tests run)
+        run: uv sync --frozen --extra stratadb --extra api
+      - name: Ruff
+        run: uv run ruff check .
+      - name: Mypy
+        run: uv run mypy
+      - name: Tests
+        run: uv run pytest -q
+
+  wheel:
+    name: wheel smoke (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Build the wheel + sdist
+        run: uv build
+      - name: Install the wheel into a clean venv and run it, away from the repo
+        shell: bash
+        run: |
+          uv venv "$RUNNER_TEMP/smoke"
+          uv pip install --python "$RUNNER_TEMP/smoke" dist/*.whl
+          cd "$RUNNER_TEMP"
+          if [ -x smoke/bin/python ]; then PY=smoke/bin/python; else PY=smoke/Scripts/python.exe; fi
+          "$PY" -c "from assay.cli import main; raise SystemExit(main(['solve', 'x^2 - 5x + 6 = 0']))"
+          "$PY" -c "from assay.cli import main; raise SystemExit(main(['ask', 'period of a simple pendulum 1 m long', '--batch']))"
+          "$PY" -c "from assay.cli import main; raise SystemExit(main(['domains']))"
+          "$PY" -c "from assay.cli import main; raise SystemExit(main(['facts']))"
+      - name: Upload the built distributions
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  license-gate:
+    name: license gate (runtime deps permissive)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Install runtime deps only (incl. the stratadb + llm + api extras)
+        run: uv sync --frozen --no-dev --extra stratadb --extra llm --extra api
+      - name: Scan runtime-dependency licenses
+        run: uv run --no-dev python scripts/check_licenses.py

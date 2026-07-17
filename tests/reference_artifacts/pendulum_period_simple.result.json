@@ -1,0 +1,168 @@
+{
+  "artifact_version": 1,
+  "ir": {
+    "assay_version": "",
+    "ir_version": 1,
+    "query": "",
+    "produced_by": null,
+    "domain": "oscillation",
+    "task": "pendulum.period.simple",
+    "setup": {},
+    "inputs": {
+      "L": {
+        "value": 1.0,
+        "unit": "m"
+      }
+    },
+    "missing_inputs": [],
+    "solve_for": null,
+    "given_output": null,
+    "resolved": {
+      "g": {
+        "value": 9.80665,
+        "unit": "m/s**2",
+        "source": {
+          "library": "assay.constants",
+          "key": "g",
+          "version": "0.5"
+        }
+      }
+    },
+    "assumptions": [],
+    "execution_plan": [],
+    "outputs": [],
+    "render": null
+  },
+  "template": {
+    "schema_version": 1,
+    "id": "pendulum.period.simple",
+    "domain": "oscillations",
+    "description": "Period of a simple pendulum (small-angle).",
+    "inputs": [
+      {
+        "many": false,
+        "name": "L",
+        "dimension": "length",
+        "required": true,
+        "resolve": null
+      },
+      {
+        "many": false,
+        "name": "g",
+        "dimension": "acceleration",
+        "required": false,
+        "resolve": {
+          "library": "assay.constants",
+          "key": "g"
+        }
+      }
+    ],
+    "method": {
+      "kind": "formula",
+      "expr": "2 * pi * sqrt(L / g)",
+      "steps": []
+    },
+    "output": {
+      "name": "period",
+      "dimension": "time"
+    },
+    "extra_outputs": [],
+    "assumptions": [
+      "small_angle"
+    ],
+    "execution_plan": [],
+    "verification": {
+      "bounds": null,
+      "cross_method": null
+    },
+    "fixtures": [
+      {
+        "setup": {},
+        "inputs": {
+          "L": [
+            1.0,
+            "m"
+          ],
+          "g": [
+            9.80665,
+            "m/s**2"
+          ]
+        },
+        "expect": {
+          "period": [
+            2.0064092925890407,
+            "s"
+          ]
+        },
+        "tol": 1e-9,
+        "solve_for": null,
+        "output": null
+      }
+    ],
+    "provenance": {
+      "source": "assay:demo",
+      "license_tier": "open",
+      "status": "candidate"
+    }
+  },
+  "answer": {
+    "result": [
+      {
+        "label": "period",
+        "value": 2.0064092925890407,
+        "unit": "second"
+      }
+    ],
+    "interpretation": "Period of a simple pendulum (small-angle). · small_angle",
+    "method": "2 * pi * sqrt(L / g)",
+    "steps": [
+      {
+        "label": "period",
+        "expr": "2 * pi * sqrt(L / g)",
+        "value": 2.0064092925890407,
+        "unit": "second",
+        "note": ""
+      }
+    ],
+    "facts": [
+      {
+        "name": "g",
+        "value": 9.80665,
+        "unit": "m/s**2",
+        "source": {
+          "library": "assay.constants",
+          "key": "g",
+          "version": "0.5"
+        }
+      }
+    ],
+    "verified": {
+      "ok": true,
+      "checks": [
+        {
+          "name": "dimension:time",
+          "ok": true,
+          "detail": "result dimension matches the declared output (second)"
+        }
+      ]
+    },
+    "figure": null,
+    "ir_hash": "0ee472b318bb993474d76e2ace55cbc1da89b9d70e3f9428b61e940de6832c75",
+    "assay_version": "0.0.1",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  },
+  "environment": {
+    "assay_version": "0.0.1",
+    "python": "3.12.3",
+    "platform": "Linux-6.17.0-35-generic-x86_64-with-glibc2.39",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  }
+}

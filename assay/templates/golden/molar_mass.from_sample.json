@@ -1,0 +1,48 @@
+{
+ "id": "molar_mass.from_sample",
+ "domain": "chemistry",
+ "description": "Molar mass from a sample's mass and amount, MM = m / n.",
+ "inputs": [
+  {
+   "name": "m",
+   "dimension": "mass"
+  },
+  {
+   "name": "n",
+   "dimension": "substance"
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "m / n"
+ },
+ "output": {
+  "name": "molar_mass",
+  "dimension": "mass/substance"
+ },
+ "fixtures": [
+  {
+   "inputs": {
+    "m": [
+     36,
+     "g"
+    ],
+    "n": [
+     2,
+     "mol"
+    ]
+   },
+   "expect": {
+    "molar_mass": [
+     18.0,
+     "g/mol"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

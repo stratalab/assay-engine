@@ -1,0 +1,127 @@
+{
+  "artifact_version": 1,
+  "ir": {
+    "assay_version": "",
+    "ir_version": 1,
+    "query": "",
+    "produced_by": null,
+    "domain": "algebra",
+    "task": "solve_equation.univariate",
+    "setup": {
+      "expression": "x**2 - 5*x + 6 = 0"
+    },
+    "inputs": {},
+    "missing_inputs": [],
+    "solve_for": null,
+    "given_output": null,
+    "resolved": {},
+    "assumptions": [],
+    "execution_plan": [],
+    "outputs": [],
+    "render": null
+  },
+  "template": {
+    "schema_version": 1,
+    "id": "solve_equation.univariate",
+    "domain": "algebra",
+    "description": "Solve a univariate equation symbolically.",
+    "inputs": [],
+    "method": {
+      "kind": "symbolic",
+      "operation": "solve"
+    },
+    "output": {
+      "name": "roots",
+      "dimension": "dimensionless"
+    },
+    "extra_outputs": [],
+    "assumptions": [],
+    "execution_plan": [],
+    "verification": {
+      "bounds": null,
+      "cross_method": null
+    },
+    "fixtures": [
+      {
+        "setup": {
+          "expression": "x**2 - 7*x + 12 = 0"
+        },
+        "inputs": {},
+        "expect": {
+          "roots": [
+            3.0,
+            4.0
+          ]
+        },
+        "tol": 1e-6,
+        "solve_for": null,
+        "output": null
+      },
+      {
+        "setup": {
+          "expression": "2*x + 5 = 0"
+        },
+        "inputs": {},
+        "expect": {
+          "roots": [
+            -2.5
+          ]
+        },
+        "tol": 1e-6,
+        "solve_for": null,
+        "output": null
+      }
+    ],
+    "provenance": {
+      "source": "assay:demo",
+      "license_tier": "open",
+      "status": "candidate"
+    }
+  },
+  "answer": {
+    "result": [
+      {
+        "label": "x",
+        "value": 2.0,
+        "unit": ""
+      },
+      {
+        "label": "x",
+        "value": 3.0,
+        "unit": ""
+      }
+    ],
+    "interpretation": "Solve a univariate equation symbolically. · expression = x**2 - 5*x + 6 = 0",
+    "method": "solve (SymPy)",
+    "steps": [],
+    "facts": [],
+    "verified": {
+      "ok": true,
+      "checks": [
+        {
+          "name": "substitution",
+          "ok": true,
+          "detail": "all 2 roots substitute to 0 (worst residual 0)"
+        }
+      ]
+    },
+    "figure": null,
+    "ir_hash": "2032fd5cd073a5b4df3f56d5758fe750b9471b884a654c579cfbea03d2c46c53",
+    "assay_version": "0.0.1",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  },
+  "environment": {
+    "assay_version": "0.0.1",
+    "python": "3.12.3",
+    "platform": "Linux-6.17.0-35-generic-x86_64-with-glibc2.39",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  }
+}

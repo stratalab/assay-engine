@@ -1,0 +1,48 @@
+{
+ "id": "rc.time_constant",
+ "domain": "control",
+ "description": "Time constant of an RC circuit, tau = R C.",
+ "inputs": [
+  {
+   "name": "R",
+   "dimension": "resistance"
+  },
+  {
+   "name": "C",
+   "dimension": "capacitance"
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "R * C"
+ },
+ "output": {
+  "name": "time_constant",
+  "dimension": "time"
+ },
+ "fixtures": [
+  {
+   "inputs": {
+    "R": [
+     1000,
+     "ohm"
+    ],
+    "C": [
+     1e-05,
+     "F"
+    ]
+   },
+   "expect": {
+    "time_constant": [
+     0.01,
+     "s"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

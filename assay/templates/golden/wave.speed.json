@@ -1,0 +1,48 @@
+{
+ "id": "wave.speed",
+ "domain": "waves",
+ "description": "Speed of a wave from frequency and wavelength, v = f lambda.",
+ "inputs": [
+  {
+   "name": "f",
+   "dimension": "frequency"
+  },
+  {
+   "name": "lam",
+   "dimension": "length"
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "f * lam"
+ },
+ "output": {
+  "name": "speed",
+  "dimension": "speed"
+ },
+ "fixtures": [
+  {
+   "inputs": {
+    "f": [
+     50,
+     "Hz"
+    ],
+    "lam": [
+     4,
+     "m"
+    ]
+   },
+   "expect": {
+    "speed": [
+     200.0,
+     "m/s"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

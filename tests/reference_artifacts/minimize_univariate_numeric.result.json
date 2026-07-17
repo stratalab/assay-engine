@@ -1,0 +1,116 @@
+{
+  "artifact_version": 1,
+  "ir": {
+    "assay_version": "",
+    "ir_version": 1,
+    "query": "",
+    "produced_by": null,
+    "domain": "optimization",
+    "task": "minimize.univariate.numeric",
+    "setup": {
+      "expression": "sin(x) + x**2 / 10",
+      "bounds": [
+        -3,
+        3
+      ]
+    },
+    "inputs": {},
+    "missing_inputs": [],
+    "solve_for": null,
+    "given_output": null,
+    "resolved": {},
+    "assumptions": [],
+    "execution_plan": [],
+    "outputs": [],
+    "render": null
+  },
+  "template": {
+    "schema_version": 1,
+    "id": "minimize.univariate.numeric",
+    "domain": "optimization",
+    "description": "Bounded scalar minimization.",
+    "inputs": [],
+    "method": {
+      "kind": "solver",
+      "binding": "minimize.scalar_bounded"
+    },
+    "output": {
+      "name": "minimizer",
+      "dimension": "dimensionless"
+    },
+    "extra_outputs": [],
+    "assumptions": [],
+    "execution_plan": [],
+    "verification": {
+      "bounds": null,
+      "cross_method": null
+    },
+    "fixtures": [
+      {
+        "setup": {
+          "expression": "(x - 2)**2 + 1",
+          "bounds": [
+            0,
+            5
+          ]
+        },
+        "inputs": {},
+        "expect": {
+          "minimizer": [
+            2.0,
+            ""
+          ]
+        },
+        "tol": 1e-6,
+        "solve_for": null,
+        "output": null
+      }
+    ],
+    "provenance": {
+      "source": "assay:demo",
+      "license_tier": "open",
+      "status": "candidate"
+    }
+  },
+  "answer": {
+    "result": [
+      {
+        "label": "x",
+        "value": -1.3064400077086313,
+        "unit": ""
+      }
+    ],
+    "interpretation": "Bounded scalar minimization. · expression = sin(x) + x**2 / 10",
+    "method": "solver: minimize.scalar_bounded",
+    "steps": [],
+    "facts": [],
+    "verified": {
+      "ok": true,
+      "checks": [
+        {
+          "name": "local-optimality",
+          "ok": true,
+          "detail": "f(-1.306440008) = -0.7945823376 ≤ its neighbors within the bounds"
+        }
+      ]
+    },
+    "figure": null,
+    "ir_hash": "94645b45d5e1e740d95116c0b1c57da53511e0a2418d6935b10ba8fa1aa5028b",
+    "assay_version": "0.0.1",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  },
+  "environment": {
+    "assay_version": "0.0.1",
+    "python": "3.12.3",
+    "platform": "Linux-6.17.0-35-generic-x86_64-with-glibc2.39",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  }
+}

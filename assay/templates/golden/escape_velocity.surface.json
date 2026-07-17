@@ -1,0 +1,61 @@
+{
+ "id": "escape_velocity.surface",
+ "domain": "gravitation",
+ "description": "Escape velocity from the surface of a body.",
+ "inputs": [
+  {
+   "name": "M",
+   "dimension": "mass"
+  },
+  {
+   "name": "R",
+   "dimension": "length"
+  },
+  {
+   "name": "G",
+   "dimension": "length**3/mass/time**2",
+   "resolve": {
+    "library": "assay.constants",
+    "key": "G"
+   },
+   "required": false
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "sqrt(2 * G * M / R)"
+ },
+ "output": {
+  "name": "escape_velocity",
+  "dimension": "speed"
+ },
+ "fixtures": [
+  {
+   "inputs": {
+    "M": [
+     6e+24,
+     "kg"
+    ],
+    "R": [
+     6400000.0,
+     "m"
+    ],
+    "G": [
+     6.6743e-11,
+     "m**3/(kg*s**2)"
+    ]
+   },
+   "expect": {
+    "escape_velocity": [
+     11186.738800919595,
+     "m/s"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

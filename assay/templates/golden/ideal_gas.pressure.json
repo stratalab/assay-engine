@@ -1,0 +1,69 @@
+{
+ "id": "ideal_gas.pressure",
+ "domain": "thermodynamics",
+ "description": "Pressure of an ideal gas (PV = nRT).",
+ "inputs": [
+  {
+   "name": "n",
+   "dimension": "substance"
+  },
+  {
+   "name": "T",
+   "dimension": "temperature"
+  },
+  {
+   "name": "V",
+   "dimension": "volume"
+  },
+  {
+   "name": "R_gas",
+   "dimension": "energy/substance/temperature",
+   "resolve": {
+    "library": "assay.constants",
+    "key": "R"
+   },
+   "required": false
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "n * R_gas * T / V"
+ },
+ "output": {
+  "name": "pressure",
+  "dimension": "pressure"
+ },
+ "fixtures": [
+  {
+   "inputs": {
+    "n": [
+     1,
+     "mol"
+    ],
+    "T": [
+     300,
+     "K"
+    ],
+    "V": [
+     0.025,
+     "m**3"
+    ],
+    "R_gas": [
+     8.31446261815324,
+     "J/(mol*K)"
+    ]
+   },
+   "expect": {
+    "pressure": [
+     99773.55141783887,
+     "Pa"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

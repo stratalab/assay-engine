@@ -1,0 +1,66 @@
+{
+ "id": "schwarzschild.radius",
+ "domain": "gravitation",
+ "description": "Schwarzschild radius of a mass, r_s = 2 G M / c**2.",
+ "inputs": [
+  {
+   "name": "M",
+   "dimension": "mass"
+  },
+  {
+   "name": "G",
+   "dimension": "length**3/mass/time**2",
+   "resolve": {
+    "library": "assay.constants",
+    "key": "G"
+   },
+   "required": false
+  },
+  {
+   "name": "c",
+   "dimension": "speed",
+   "resolve": {
+    "library": "assay.constants",
+    "key": "c"
+   },
+   "required": false
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "2 * G * M / c**2"
+ },
+ "output": {
+  "name": "schwarzschild_radius",
+  "dimension": "length"
+ },
+ "fixtures": [
+  {
+   "inputs": {
+    "M": [
+     2e+30,
+     "kg"
+    ],
+    "G": [
+     6.6743e-11,
+     "m**3/(kg*s**2)"
+    ],
+    "c": [
+     299792458,
+     "m/s"
+    ]
+   },
+   "expect": {
+    "schwarzschild_radius": [
+     2970.464107647466,
+     "m"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

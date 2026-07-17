@@ -1,0 +1,61 @@
+{
+ "id": "relativistic_kinetic_energy.point_mass",
+ "domain": "dynamics",
+ "description": "Relativistic kinetic energy of a point mass, KE = (gamma - 1) m c**2.",
+ "inputs": [
+  {
+   "name": "m",
+   "dimension": "mass"
+  },
+  {
+   "name": "v",
+   "dimension": "speed"
+  },
+  {
+   "name": "c",
+   "dimension": "speed",
+   "resolve": {
+    "library": "assay.constants",
+    "key": "c"
+   },
+   "required": false
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "(1 / sqrt(1 - v**2 / c**2) - 1) * m * c**2"
+ },
+ "output": {
+  "name": "kinetic_energy",
+  "dimension": "energy"
+ },
+ "fixtures": [
+  {
+   "inputs": {
+    "m": [
+     1,
+     "kg"
+    ],
+    "v": [
+     150000000.0,
+     "m/s"
+    ],
+    "c": [
+     299792458,
+     "m/s"
+    ]
+   },
+   "expect": {
+    "kinetic_energy": [
+     1.3927755897018748e+16,
+     "J"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

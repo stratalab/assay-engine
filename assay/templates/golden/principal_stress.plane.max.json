@@ -1,0 +1,73 @@
+{
+ "id": "principal_stress.plane.max",
+ "domain": "materials",
+ "description": "Maximum in-plane principal stress for plane stress (Mohr's circle).",
+ "inputs": [
+  {
+   "name": "sx",
+   "dimension": "pressure"
+  },
+  {
+   "name": "sy",
+   "dimension": "pressure"
+  },
+  {
+   "name": "txy",
+   "dimension": "pressure"
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "steps": [
+   {
+    "name": "sigma_avg",
+    "expr": "(sx + sy) / 2"
+   },
+   {
+    "name": "radius",
+    "expr": "sqrt(((sx - sy) / 2)**2 + txy**2)"
+   },
+   {
+    "name": "sigma_max",
+    "expr": "sigma_avg + radius"
+   }
+  ]
+ },
+ "output": {
+  "name": "max_principal_stress",
+  "dimension": "pressure"
+ },
+ "assumptions": [
+  "plane_stress",
+  "linear_elastic"
+ ],
+ "fixtures": [
+  {
+   "inputs": {
+    "sx": [
+     80,
+     "MPa"
+    ],
+    "sy": [
+     20,
+     "MPa"
+    ],
+    "txy": [
+     40,
+     "MPa"
+    ]
+   },
+   "expect": {
+    "max_principal_stress": [
+     100.0,
+     "MPa"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

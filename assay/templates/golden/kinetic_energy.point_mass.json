@@ -1,0 +1,55 @@
+{
+ "id": "kinetic_energy.point_mass",
+ "domain": "dynamics",
+ "description": "Kinetic energy of a point mass.",
+ "inputs": [
+  {
+   "name": "m",
+   "dimension": "mass"
+  },
+  {
+   "name": "v",
+   "dimension": "speed"
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "m * v**2 / 2"
+ },
+ "output": {
+  "name": "kinetic_energy",
+  "dimension": "energy"
+ },
+ "verification": {
+  "bounds": {
+   "min": 0.0,
+   "max": 1e+50,
+   "unit": "J"
+  }
+ },
+ "fixtures": [
+  {
+   "inputs": {
+    "m": [
+     2,
+     "kg"
+    ],
+    "v": [
+     10,
+     "m/s"
+    ]
+   },
+   "expect": {
+    "kinetic_energy": [
+     100.0,
+     "J"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

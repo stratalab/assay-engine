@@ -1,0 +1,40 @@
+{
+ "id": "solve_equation.univariate",
+ "domain": "algebra",
+ "description": "Solve a univariate equation symbolically.",
+ "method": {
+  "kind": "symbolic",
+  "operation": "solve"
+ },
+ "output": {
+  "name": "roots",
+  "dimension": "dimensionless"
+ },
+ "fixtures": [
+  {
+   "setup": {
+    "expression": "x**2 - 7*x + 12 = 0"
+   },
+   "expect": {
+    "roots": [
+     3.0,
+     4.0
+    ]
+   }
+  },
+  {
+   "setup": {
+    "expression": "2*x + 5 = 0"
+   },
+   "expect": {
+    "roots": [
+     -2.5
+    ]
+   }
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Local credentials / env
+.env
+
+# Assay: generated artifacts / caches
+/artifacts/
+*.result.json
+
+# …but the committed reference artifacts (E3.4, the cross-platform rerun proof) are
+# deliberate exceptions to the rule above:
+!tests/reference_artifacts/*.result.json

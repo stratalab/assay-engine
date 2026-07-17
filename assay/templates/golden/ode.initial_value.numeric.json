@@ -1,0 +1,36 @@
+{
+ "id": "ode.initial_value.numeric",
+ "domain": "differential_equations",
+ "description": "Initial-value ODE integrated numerically (RK45, DOP853 cross-check).",
+ "method": {
+  "kind": "solver",
+  "binding": "ode.solve_ivp"
+ },
+ "output": {
+  "name": "y_end",
+  "dimension": "dimensionless"
+ },
+ "fixtures": [
+  {
+   "setup": {
+    "expression": "-y",
+    "y0": 1,
+    "t_span": [
+     0,
+     1
+    ]
+   },
+   "expect": {
+    "y_end": [
+     0.36787944117144233,
+     ""
+    ]
+   },
+   "tol": 1e-06
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

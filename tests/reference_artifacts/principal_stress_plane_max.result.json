@@ -1,0 +1,191 @@
+{
+  "artifact_version": 1,
+  "ir": {
+    "assay_version": "",
+    "ir_version": 1,
+    "query": "",
+    "produced_by": null,
+    "domain": "materials",
+    "task": "principal_stress.plane.max",
+    "setup": {},
+    "inputs": {
+      "sx": {
+        "value": 80000000.0,
+        "unit": "Pa"
+      },
+      "sy": {
+        "value": 20000000.0,
+        "unit": "Pa"
+      },
+      "txy": {
+        "value": 25000000.0,
+        "unit": "Pa"
+      }
+    },
+    "missing_inputs": [],
+    "solve_for": null,
+    "given_output": null,
+    "resolved": {},
+    "assumptions": [],
+    "execution_plan": [],
+    "outputs": [],
+    "render": null
+  },
+  "template": {
+    "schema_version": 1,
+    "id": "principal_stress.plane.max",
+    "domain": "materials",
+    "description": "Maximum in-plane principal stress for plane stress (Mohr's circle).",
+    "inputs": [
+      {
+        "many": false,
+        "name": "sx",
+        "dimension": "pressure",
+        "required": true,
+        "resolve": null
+      },
+      {
+        "many": false,
+        "name": "sy",
+        "dimension": "pressure",
+        "required": true,
+        "resolve": null
+      },
+      {
+        "many": false,
+        "name": "txy",
+        "dimension": "pressure",
+        "required": true,
+        "resolve": null
+      }
+    ],
+    "method": {
+      "kind": "formula",
+      "expr": null,
+      "steps": [
+        {
+          "name": "sigma_avg",
+          "expr": "(sx + sy) / 2"
+        },
+        {
+          "name": "radius",
+          "expr": "sqrt(((sx - sy) / 2)**2 + txy**2)"
+        },
+        {
+          "name": "sigma_max",
+          "expr": "sigma_avg + radius"
+        }
+      ]
+    },
+    "output": {
+      "name": "max_principal_stress",
+      "dimension": "pressure"
+    },
+    "extra_outputs": [],
+    "assumptions": [
+      "plane_stress",
+      "linear_elastic"
+    ],
+    "execution_plan": [],
+    "verification": {
+      "bounds": null,
+      "cross_method": null
+    },
+    "fixtures": [
+      {
+        "setup": {},
+        "inputs": {
+          "sx": [
+            80.0,
+            "MPa"
+          ],
+          "sy": [
+            20.0,
+            "MPa"
+          ],
+          "txy": [
+            40.0,
+            "MPa"
+          ]
+        },
+        "expect": {
+          "max_principal_stress": [
+            100.0,
+            "MPa"
+          ]
+        },
+        "tol": 1e-9,
+        "solve_for": null,
+        "output": null
+      }
+    ],
+    "provenance": {
+      "source": "assay:demo",
+      "license_tier": "open",
+      "status": "candidate"
+    }
+  },
+  "answer": {
+    "result": [
+      {
+        "label": "max_principal_stress",
+        "value": 89051248.37953326,
+        "unit": "kilogram / meter / second ** 2"
+      }
+    ],
+    "interpretation": "Maximum in-plane principal stress for plane stress (Mohr's circle). · plane_stress · linear_elastic",
+    "method": "sigma_avg = (sx + sy) / 2 ; radius = sqrt(((sx - sy) / 2)**2 + txy**2) ; sigma_max = sigma_avg + radius",
+    "steps": [
+      {
+        "label": "sigma_avg",
+        "expr": "(sx + sy) / 2",
+        "value": 50000000.0,
+        "unit": "kilogram / meter / second ** 2",
+        "note": ""
+      },
+      {
+        "label": "radius",
+        "expr": "sqrt(((sx - sy) / 2)**2 + txy**2)",
+        "value": 39051248.37953327,
+        "unit": "kilogram / meter / second ** 2",
+        "note": ""
+      },
+      {
+        "label": "sigma_max",
+        "expr": "sigma_avg + radius",
+        "value": 89051248.37953326,
+        "unit": "kilogram / meter / second ** 2",
+        "note": ""
+      }
+    ],
+    "facts": [],
+    "verified": {
+      "ok": true,
+      "checks": [
+        {
+          "name": "dimension:pressure",
+          "ok": true,
+          "detail": "result dimension matches the declared output (kilogram / meter / second ** 2)"
+        }
+      ]
+    },
+    "figure": null,
+    "ir_hash": "30b772b9395830ec6482c1ed2404923a056eb0ffb3f396dec9455be85732bd78",
+    "assay_version": "0.0.1",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  },
+  "environment": {
+    "assay_version": "0.0.1",
+    "python": "3.12.3",
+    "platform": "Linux-6.17.0-35-generic-x86_64-with-glibc2.39",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  }
+}

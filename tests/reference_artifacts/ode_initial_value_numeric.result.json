@@ -1,0 +1,118 @@
+{
+  "artifact_version": 1,
+  "ir": {
+    "assay_version": "",
+    "ir_version": 1,
+    "query": "",
+    "produced_by": null,
+    "domain": "differential_equations",
+    "task": "ode.initial_value.numeric",
+    "setup": {
+      "expression": "-2 * t * y",
+      "y0": 1,
+      "t_span": [
+        0,
+        1
+      ]
+    },
+    "inputs": {},
+    "missing_inputs": [],
+    "solve_for": null,
+    "given_output": null,
+    "resolved": {},
+    "assumptions": [],
+    "execution_plan": [],
+    "outputs": [],
+    "render": null
+  },
+  "template": {
+    "schema_version": 1,
+    "id": "ode.initial_value.numeric",
+    "domain": "differential_equations",
+    "description": "Initial-value ODE integrated numerically (RK45, DOP853 cross-check).",
+    "inputs": [],
+    "method": {
+      "kind": "solver",
+      "binding": "ode.solve_ivp"
+    },
+    "output": {
+      "name": "y_end",
+      "dimension": "dimensionless"
+    },
+    "extra_outputs": [],
+    "assumptions": [],
+    "execution_plan": [],
+    "verification": {
+      "bounds": null,
+      "cross_method": null
+    },
+    "fixtures": [
+      {
+        "setup": {
+          "expression": "-y",
+          "y0": 1,
+          "t_span": [
+            0,
+            1
+          ]
+        },
+        "inputs": {},
+        "expect": {
+          "y_end": [
+            0.36787944117144233,
+            ""
+          ]
+        },
+        "tol": 1e-6,
+        "solve_for": null,
+        "output": null
+      }
+    ],
+    "provenance": {
+      "source": "assay:demo",
+      "license_tier": "open",
+      "status": "candidate"
+    }
+  },
+  "answer": {
+    "result": [
+      {
+        "label": "y(t1)",
+        "value": 0.36787944118025406,
+        "unit": ""
+      }
+    ],
+    "interpretation": "Initial-value ODE integrated numerically (RK45, DOP853 cross-check). · expression = -2 * t * y",
+    "method": "solver: ode.solve_ivp",
+    "steps": [],
+    "facts": [],
+    "verified": {
+      "ok": true,
+      "checks": [
+        {
+          "name": "cross-method:dop853",
+          "ok": true,
+          "detail": "RK45 0.3678794412 vs DOP853 0.3678794412"
+        }
+      ]
+    },
+    "figure": null,
+    "ir_hash": "d4de5c79214e0065fe315baa40f0c770d18aabec6299e852b8a0f19f4573c5e7",
+    "assay_version": "0.0.1",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  },
+  "environment": {
+    "assay_version": "0.0.1",
+    "python": "3.12.3",
+    "platform": "Linux-6.17.0-35-generic-x86_64-with-glibc2.39",
+    "versions": {
+      "sympy": "1.14.0",
+      "pint": "0.25.3",
+      "pydantic": "2.13.4"
+    }
+  }
+}

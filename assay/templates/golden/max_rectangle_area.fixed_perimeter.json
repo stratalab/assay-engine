@@ -1,0 +1,40 @@
+{
+ "id": "max_rectangle_area.fixed_perimeter",
+ "domain": "optimization",
+ "description": "Maximum rectangle area for a fixed perimeter (the square), A = p**2/16.",
+ "inputs": [
+  {
+   "name": "p",
+   "dimension": "length"
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "p**2 / 16"
+ },
+ "output": {
+  "name": "max_area",
+  "dimension": "area"
+ },
+ "fixtures": [
+  {
+   "inputs": {
+    "p": [
+     8,
+     "m"
+    ]
+   },
+   "expect": {
+    "max_area": [
+     4.0,
+     "m**2"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

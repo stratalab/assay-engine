@@ -1,0 +1,79 @@
+{
+ "schema_version": 2,
+ "id": "sample_stats.dataset",
+ "domain": "statistics",
+ "description": "Sample standard deviation and mean of a dataset (multi-output).",
+ "inputs": [
+  {
+   "name": "x",
+   "dimension": "dimensionless",
+   "many": true
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "steps": [
+   {
+    "name": "x_mean",
+    "expr": "mean(x)"
+   },
+   {
+    "name": "s",
+    "expr": "sqrt((sum_sq(x) - count(x)*x_mean**2) / (count(x) - 1))"
+   }
+  ]
+ },
+ "output": {
+  "name": "s",
+  "dimension": "dimensionless"
+ },
+ "extra_outputs": [
+  {
+   "name": "x_mean",
+   "dimension": "dimensionless"
+  }
+ ],
+ "fixtures": [
+  {
+   "inputs": {
+    "x": [
+     [
+      1,
+      ""
+     ],
+     [
+      2,
+      ""
+     ],
+     [
+      3,
+      ""
+     ],
+     [
+      4,
+      ""
+     ],
+     [
+      5,
+      ""
+     ]
+    ]
+   },
+   "expect": {
+    "s": [
+     1.5811388300841898,
+     ""
+    ],
+    "x_mean": [
+     3.0,
+     ""
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

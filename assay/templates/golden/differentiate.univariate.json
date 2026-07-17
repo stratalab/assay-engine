@@ -1,0 +1,27 @@
+{
+ "id": "differentiate.univariate",
+ "domain": "calculus",
+ "description": "Derivative of a univariate expression.",
+ "method": {
+  "kind": "symbolic",
+  "operation": "differentiate"
+ },
+ "output": {
+  "name": "derivative",
+  "dimension": "dimensionless"
+ },
+ "fixtures": [
+  {
+   "setup": {
+    "expression": "x**4 - 2*x"
+   },
+   "expect": {
+    "derivative": "4*x**3 - 2"
+   }
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

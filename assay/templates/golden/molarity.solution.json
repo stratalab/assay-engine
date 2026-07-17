@@ -1,0 +1,48 @@
+{
+ "id": "molarity.solution",
+ "domain": "chemistry",
+ "description": "Molarity of a solution, M = n / V.",
+ "inputs": [
+  {
+   "name": "n",
+   "dimension": "substance"
+  },
+  {
+   "name": "V",
+   "dimension": "volume"
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "n / V"
+ },
+ "output": {
+  "name": "molarity",
+  "dimension": "substance/volume"
+ },
+ "fixtures": [
+  {
+   "inputs": {
+    "n": [
+     0.5,
+     "mol"
+    ],
+    "V": [
+     2,
+     "L"
+    ]
+   },
+   "expect": {
+    "molarity": [
+     0.25,
+     "mol/L"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

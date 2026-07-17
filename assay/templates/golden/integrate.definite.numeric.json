@@ -1,0 +1,35 @@
+{
+ "id": "integrate.definite.numeric",
+ "domain": "calculus",
+ "description": "Definite integral by adaptive quadrature.",
+ "method": {
+  "kind": "solver",
+  "binding": "integrate.quad"
+ },
+ "output": {
+  "name": "integral",
+  "dimension": "dimensionless"
+ },
+ "fixtures": [
+  {
+   "setup": {
+    "expression": "x**2",
+    "limits": [
+     0,
+     3
+    ]
+   },
+   "expect": {
+    "integral": [
+     9.0,
+     ""
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

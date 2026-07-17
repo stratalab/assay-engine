@@ -1,0 +1,48 @@
+{
+ "id": "spring_mass.natural_frequency",
+ "domain": "control",
+ "description": "Natural angular frequency of a spring-mass system, omega = sqrt(k/m).",
+ "inputs": [
+  {
+   "name": "k",
+   "dimension": "force/length"
+  },
+  {
+   "name": "m",
+   "dimension": "mass"
+  }
+ ],
+ "method": {
+  "kind": "formula",
+  "expr": "sqrt(k / m)"
+ },
+ "output": {
+  "name": "natural_frequency",
+  "dimension": "1/time"
+ },
+ "fixtures": [
+  {
+   "inputs": {
+    "k": [
+     400,
+     "N/m"
+    ],
+    "m": [
+     4,
+     "kg"
+    ]
+   },
+   "expect": {
+    "natural_frequency": [
+     10.0,
+     "rad/s"
+    ]
+   },
+   "tol": 1e-09
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}
