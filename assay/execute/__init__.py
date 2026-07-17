@@ -443,8 +443,15 @@ def _execute_parametric_slope(
     template: Template, setup: Mapping[str, Any]
 ) -> ExecutionResult:
     """dy/dx = (dy/dt)/(dx/dt) — symbolic when no ``point`` is given, numeric at the
-    point otherwise; a vertical tangent (dx/dt = 0) refuses by name (A-12)."""
+    point otherwise; a vertical tangent (dx/dt = 0) refuses by name (A-12).
+
+    ``order: 2`` (round-8 follow-up) is the parametric SECOND derivative,
+    d²y/dx² = d/dt(dy/dx) / (dx/dt) — one more differentiation through the same
+    machinery, and emphatically NOT (d²y/dt²)/(d²x/dt²), the standard trap."""
     x_expr, y_expr, symbol = parametric_problem(setup)
+    order = setup.get("order", 1)
+    if order not in (1, 2) or isinstance(order, bool):
+        raise InputError("setup 'order' must be 1 (dy/dx) or 2 (d²y/dx²)")
     dx = sympy.diff(x_expr, symbol)
     dy = sympy.diff(y_expr, symbol)
     if dx == 0:
@@ -453,6 +460,8 @@ def _execute_parametric_slope(
             " is undefined (A-12)"
         )
     slope = sympy.simplify(dy / dx)
+    if order == 2:
+        slope = sympy.simplify(sympy.diff(slope, symbol) / dx)
     point = setup.get("point")
     if point is None:
         return ExecutionResult(

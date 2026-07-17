@@ -111,6 +111,43 @@ def test_polar_tangent_through_the_same_operation() -> None:
     assert all(r.ok for r in run_fixtures(template))
 
 
+def test_parametric_second_derivative_exhibits() -> None:
+    """The round-8 follow-up (m53850, §7.2): order 2 is d²y/dx² =
+    d/dt(dy/dx) / (dx/dt) — NOT (d²y/dt²)/(d²x/dt²), the standard trap."""
+    template = _slope([
+        # exhibit 1: x = t²−3, y = 2t−1 → -1/(2t³)
+        {"setup": {"x_expression": "t**2 - 3", "y_expression": "2*t - 1", "order": 2},
+         "expect": {"slope": "-1/(2*t**3)"}},
+        # exhibit 2: x = t²−4t, y = 2t³−6t
+        {"setup": {"x_expression": "t**2 - 4*t", "y_expression": "2*t**3 - 6*t",
+                   "order": 2},
+         "expect": {"slope": "(3*t**2 - 12*t + 3)/(2*(t - 2)**3)"}},
+        # exhibit 3: a straight line — the exact-zero path
+        {"setup": {"x_expression": "4*t", "y_expression": "3*t - 2",
+                   "order": 2, "point": 3},
+         "expect": {"slope": [0.0]}},
+        # exhibit 4: x = 2 + sec θ, y = 1 + 2 tan θ at θ = π/6 → -6√3
+        {"setup": {"x_expression": "2 + 1/cos(t)", "y_expression": "1 + 2*sin(t)/cos(t)",
+                   "order": 2, "point": 0.5235987755982988},
+         "expect": {"slope": [-10.392304845413264]}},
+    ])
+    assert all(r.ok for r in run_fixtures(template))
+    verified = verify_execution(
+        template, {},
+        setup={"x_expression": "2 + 1/cos(t)", "y_expression": "1 + 2*sin(t)/cos(t)",
+               "order": 2, "point": 0.5235987755982988},
+    )
+    assert verified.verification.ok  # the chord-of-chords second difference agrees
+
+
+def test_order_is_gated() -> None:
+    with pytest.raises(Exception, match="'order' must be 1"):
+        _slope([
+            {"setup": {"x_expression": "t", "y_expression": "t**2", "order": 3},
+             "expect": {"slope": [0.0]}},
+        ])
+
+
 def test_vertical_tangent_refuses_by_name() -> None:
     template = _slope([
         {"setup": {"x_expression": "cos(t)", "y_expression": "sin(t)", "point": 0.7853981633974483},

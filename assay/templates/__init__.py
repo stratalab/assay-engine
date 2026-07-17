@@ -904,6 +904,16 @@ class Template(BaseModel):
                         f"fixtures[{index}].setup 'point' must be a number"
                         " (omit it for the symbolic slope)"
                     )
+                slope_order = fixture.setup.get("order")
+                if slope_order is not None and (
+                    not isinstance(slope_order, int)
+                    or isinstance(slope_order, bool)
+                    or slope_order not in (1, 2)
+                ):
+                    problems.append(
+                        f"fixtures[{index}].setup 'order' must be 1 (dy/dx) or"
+                        " 2 (the parametric second derivative)"
+                    )
                 variable = fixture.setup.get("variable")
                 if variable is not None and (
                     not isinstance(variable, str) or not variable.isidentifier()

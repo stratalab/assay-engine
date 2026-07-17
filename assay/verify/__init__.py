@@ -537,10 +537,14 @@ def _check_parametric_difference(
 ) -> VerificationCheck:
     """The parametric slope's independent check (chisel round 8): the central
     difference (Δy/Δx along the curve) must agree — numerically at the given point,
-    or at sample parameter values for a symbolic slope."""
+    or at sample parameter values for a symbolic slope. ``order: 2`` checks the
+    chord-of-chords second difference (Δ(dy/dx)/Δx), still built purely from x(t)
+    and y(t) evaluations — independent of every symbolic differentiation."""
     name = "parametric-difference"
     x_expr, y_expr, symbol = parametric_problem(setup)
-    step = 1e-6
+    order = setup.get("order", 1)
+    step = 1e-6 if order == 1 else 1e-4
+    tolerance = 1e-4 if order == 1 else 2e-3
     reported = result.value
 
     def chord(at: float) -> float | None:
@@ -557,21 +561,37 @@ def _check_parametric_difference(
             return None
         return dy / dx
 
+    def numeric_at(at: float) -> float | None:
+        if order == 1:
+            return chord(at)
+        upper, lower = chord(at + step), chord(at - step)
+        if upper is None or lower is None:
+            return None
+        try:
+            dx = float(x_expr.subs(symbol, sympy.Float(at + step))) - float(
+                x_expr.subs(symbol, sympy.Float(at - step))
+            )
+        except (TypeError, ValueError):
+            return None
+        if abs(dx) < 1e-15:
+            return None
+        return (upper - lower) / dx
+
     if isinstance(reported, float):
         point = setup.get("point")
         assert isinstance(point, int | float)  # the executor required it
-        numeric = chord(float(point))
+        numeric = numeric_at(float(point))
         if numeric is None:
             return VerificationCheck(
                 name=name, ok=False,
                 detail=f"no usable central difference at {symbol} = {point:g}",
             )
-        ok = abs(numeric - reported) <= 1e-4 * max(1.0, abs(reported))
+        ok = abs(numeric - reported) <= tolerance * max(1.0, abs(reported))
         return VerificationCheck(
             name=name,
             ok=ok,
             detail=(
-                f"central difference {numeric:.6g} vs slope {reported:.6g}"
+                f"central difference {numeric:.6g} vs derivative {reported:.6g}"
                 + ("" if ok else " — disagreement; withholding the answer")
             ),
         )
@@ -583,14 +603,14 @@ def _check_parametric_difference(
         )
     compared = 0
     for at in (0.7, 1.3, -0.6):
-        numeric = chord(at)
+        numeric = numeric_at(at)
         try:
             exact = float(slope_expr.subs(symbol, sympy.Float(at)))
         except (TypeError, ValueError):
             continue
         if numeric is None:
             continue
-        if abs(numeric - exact) > 1e-4 * max(1.0, abs(exact)):
+        if abs(numeric - exact) > tolerance * max(1.0, abs(exact)):
             return VerificationCheck(
                 name=name,
                 ok=False,
