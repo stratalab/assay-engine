@@ -611,13 +611,139 @@ def _check_parametric_difference(
     )
 
 
+def _check_taylor_coefficients(
+    template: Template, result: ExecutionResult, setup: Mapping[str, Any]
+) -> VerificationCheck:
+    """The Taylor polynomial's independent check (E2.16): coefficient k must equal
+    f⁽ᵏ⁾(a)/k! — checked by differentiating BOTH the reported polynomial and f at
+    the center, exactly, independent of the series expansion that generated it."""
+    name = "taylor-coefficients"
+    expression, symbol = symbolic_problem(template, setup)
+    order = setup.get("order")
+    assert isinstance(order, int)  # the executor required it
+    center = setup.get("center", 0)
+    at = sympy.Integer(center) if isinstance(center, int) else sympy.Float(center)
+    try:
+        polynomial = parse_formula(str(result.value), {str(symbol)})
+    except Exception as exc:
+        return VerificationCheck(
+            name=name, ok=False, detail=f"could not parse the reported polynomial: {exc}"
+        )
+    if sympy.degree(sympy.expand(polynomial), symbol) > order:
+        return VerificationCheck(
+            name=name, ok=False,
+            detail=f"the reported polynomial exceeds degree {order} — withholding",
+        )
+    reported_k = polynomial
+    function_k = expression
+    for k in range(order + 1):
+        try:
+            difference = sympy.simplify(
+                reported_k.subs(symbol, at) - function_k.subs(symbol, at)
+            )
+        except (TypeError, ValueError) as exc:
+            return VerificationCheck(
+                name=name, ok=False,
+                detail=f"cannot evaluate derivative {k} at the center: {exc}",
+            )
+        if difference != 0:
+            return VerificationCheck(
+                name=name,
+                ok=False,
+                detail=(
+                    f"derivative {k} at the center disagrees"
+                    f" (difference {sympy.sstr(difference)}) — withholding the answer"
+                ),
+            )
+        reported_k = sympy.diff(reported_k, symbol)
+        function_k = sympy.diff(function_k, symbol)
+    return VerificationCheck(
+        name=name,
+        ok=True,
+        detail=f"all {order + 1} coefficients match f's derivative table at the center",
+    )
+
+
+def _check_term_behavior(
+    template: Template, result: ExecutionResult, setup: Mapping[str, Any]
+) -> VerificationCheck:
+    """The convergence result's independent check (E2.16): sample the TERM
+    numerically — inside the reported radius the terms must shrink; outside a
+    finite radius they must not vanish. Endpoint inclusion rides on SymPy's
+    convergence machinery (recorded; not re-checked numerically)."""
+    name = "term-behavior"
+    from assay.execute import parse_series_term
+
+    raw = setup.get("term")
+    assert isinstance(raw, str)
+    variable = setup.get("variable", "x")
+    index = setup.get("index", "n")
+    term = parse_series_term(raw, {variable, index})
+    x, n = sympy.Symbol(variable), sympy.Symbol(index)
+    center = float(setup.get("center", 0))
+    radius_value = result.values[1].value if len(result.values) > 1 else None
+
+    def magnitude(x_at: float, n_at: int) -> float | None:
+        try:
+            return abs(float(term.subs({x: sympy.Float(x_at), n: sympy.Integer(n_at)})))
+        except (TypeError, ValueError, OverflowError):
+            return None
+
+    def shrinks(x_at: float) -> bool | None:
+        early, late = magnitude(x_at, 8), magnitude(x_at, 40)
+        if early is None or late is None:
+            return None
+        return late <= early * 1e-3 or late <= 1e-9
+
+    probes: list[tuple[float, bool]] = []  # (x, expected-to-shrink)
+    if radius_value == "oo":
+        probes = [(center + 5.0, True), (center - 5.0, True)]
+    elif isinstance(radius_value, float) and radius_value == 0.0:
+        probes = [(center + 1.0, False), (center - 1.0, False)]
+    elif isinstance(radius_value, float):
+        probes = [
+            (center + radius_value / 2, True), (center - radius_value / 2, True),
+            (center + 2 * radius_value, False), (center - 2 * radius_value, False),
+        ]
+    checked = 0
+    for x_at, expect_shrink in probes:
+        verdict = shrinks(x_at)
+        if verdict is None:
+            continue
+        if verdict != expect_shrink:
+            side = "inside" if expect_shrink else "outside"
+            return VerificationCheck(
+                name=name,
+                ok=False,
+                detail=(
+                    f"at x = {x_at:g} ({side} the reported radius) the terms"
+                    f" {'do not shrink' if expect_shrink else 'vanish'} —"
+                    " contradicting the ratio test; withholding the answer"
+                ),
+            )
+        checked += 1
+    if checked == 0:
+        return VerificationCheck(
+            name=name, ok=False, detail="no usable probe points for the term"
+        )
+    return VerificationCheck(
+        name=name,
+        ok=True,
+        detail=(
+            f"term magnitudes agree with the reported radius at {checked} probes"
+            " (endpoint inclusion per SymPy's convergence test)"
+        ),
+    )
+
+
 def _verify_symbolic(
     template: Template, setup: Mapping[str, Any]
 ) -> VerifiedExecution:
-    """Symbolic operations carry built-in checks (E1.5/E2.5/E2.13) in place of the
-    declarative hooks: solve → substitution, differentiate → difference quotient,
+    """Symbolic operations carry built-in checks (E1.5/E2.5/E2.13/E2.16) in place of
+    the declarative hooks: solve → substitution, differentiate → difference quotient,
     integrate → derivative (or quadrature when definite), limit → approach sequence,
-    solve_inequality → test points, parametric_slope → central difference."""
+    solve_inequality → test points, parametric_slope → central difference,
+    taylor_polynomial → the derivative table, series_convergence → term behavior."""
     result = execute_template(template, {}, setup=setup)
     assert isinstance(template.method, SymbolicMethod)  # dispatcher guards
     if template.method.operation == "solve":
@@ -630,6 +756,10 @@ def _verify_symbolic(
         check = _check_interval_testpoints(template, result, setup)
     elif template.method.operation == "parametric_slope":
         check = _check_parametric_difference(template, result, setup)
+    elif template.method.operation == "taylor_polynomial":
+        check = _check_taylor_coefficients(template, result, setup)
+    elif template.method.operation == "series_convergence":
+        check = _check_term_behavior(template, result, setup)
     elif setup.get("limits") is not None:  # definite/improper integration (E2.13)
         check = _check_quadrature(template, result, setup)
     else:

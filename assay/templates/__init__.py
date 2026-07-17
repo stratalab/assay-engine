@@ -60,6 +60,7 @@ __all__ = [
     "golden_templates",
     "coverage",
     "domain_placement",
+    "series_term_symbols",
     "taxonomy",
     "validate_template",
 ]
@@ -171,6 +172,19 @@ def expr_symbols(expr: str) -> set[str]:
     strings, comparisons, lambdas) is rejected with a reason, so a crafted "formula"
     fails at validation, long before the executor's safe parse (E1.2, engineering §7).
     """
+    return _gated_symbols(expr, frozenset())
+
+
+def series_term_symbols(expr: str) -> set[str]:
+    """The series-term grammar (E2.16): the ordinary gate plus ``factorial(...)`` —
+    a SCOPED extension for ``series_convergence`` terms only. The factorial stays
+    symbolic (the ratio-test limit is symbolic manipulation, never a float
+    evaluation), so the integer-semantics objection to a general widening does not
+    apply here (sandboxing.md, the widening ledger)."""
+    return _gated_symbols(expr, frozenset({"factorial"}))
+
+
+def _gated_symbols(expr: str, extra_calls: frozenset[str]) -> set[str]:
     try:
         tree = ast.parse(expr, mode="eval")
     except SyntaxError as exc:
@@ -188,7 +202,7 @@ def expr_symbols(expr: str) -> set[str]:
         if not isinstance(node, _EXPR_NODES):
             raise ValueError(f"disallowed construct {type(node).__name__!r} in expression")
         if isinstance(node, ast.Call):
-            allowed_calls = SAFE_FUNCTIONS | REDUCERS | PAIRED_REDUCERS
+            allowed_calls = SAFE_FUNCTIONS | REDUCERS | PAIRED_REDUCERS | extra_calls
             if not (isinstance(node.func, ast.Name) and node.func.id in allowed_calls):
                 raise ValueError(
                     "only calls to the safe math functions are allowed: "
@@ -196,6 +210,12 @@ def expr_symbols(expr: str) -> set[str]:
                 )
             if node.keywords:
                 raise ValueError("keyword arguments are not allowed in expressions")
+            if (
+                isinstance(node.func, ast.Name)
+                and node.func.id in extra_calls
+                and len(node.args) != 1
+            ):
+                raise ValueError(f"{node.func.id}() takes exactly one argument")
             # structural rules: a reducer takes exactly one bare input name; a paired
             # reducer exactly two DISTINCT bare input names
             if isinstance(node.func, ast.Name) and node.func.id in REDUCERS:
@@ -408,6 +428,12 @@ class SymbolicMethod(BaseModel):
         # chisel round 8, finding 3: dy/dx = (dy/dt)/(dx/dt) for parametric curves
         # (polar tangents encode as x = r(θ)·cos(θ), y = r(θ)·sin(θ) — same op)
         "parametric_slope",
+        # E2.16 (round-8 exhibits): the series operations — Taylor/Maclaurin
+        # polynomial to order n (setup expression/center/order), and radius +
+        # interval of convergence by the ratio test (setup term/center; the term may
+        # use factorial(...) of the summation index — a SCOPED grammar extension,
+        # symbolic-only, see sandboxing.md)
+        "taylor_polynomial", "series_convergence",
     ]
 
 
@@ -579,6 +605,11 @@ class Template(BaseModel):
         problems += self._extra_outputs_contract(input_names)
 
         expect_keys = {self.output.name} | {out.name for out in self.extra_outputs}
+        if (
+            isinstance(self.method, SymbolicMethod)
+            and self.method.operation == "series_convergence"
+        ):
+            expect_keys |= {"radius"}  # the operation's second result label (E2.16)
         for index, fixture in enumerate(self.fixtures):
             if fixture.solve_for is not None:
                 if set(fixture.expect) != {fixture.solve_for}:
@@ -805,16 +836,64 @@ class Template(BaseModel):
                 problems.append(
                     f"fixtures[{index}]: solve_for applies to formula templates only"
                 )
+            if operation == "series_convergence":  # a term, no 'expression' (E2.16)
+                term = fixture.setup.get("term")
+                if not isinstance(term, str) or not term.strip():
+                    problems.append(
+                        f"fixtures[{index}].setup needs 'term' (the summand as a"
+                        " function of the index and the variable)"
+                    )
+                else:
+                    try:
+                        series_term_symbols(term)
+                    except ValueError as exc:
+                        problems.append(f"fixtures[{index}].setup term: {exc}")
+                center = fixture.setup.get("center")
+                if center is not None and not (
+                    isinstance(center, int | float) and not isinstance(center, bool)
+                ):
+                    problems.append(f"fixtures[{index}].setup 'center' must be a number")
+                for key, value in fixture.expect.items():
+                    if key == self.output.name:  # the interval, canonical notation
+                        if not isinstance(value, str) or not re.match(
+                            INTERVAL_NOTATION, value
+                        ):
+                            problems.append(
+                                f"fixtures[{index}].expect[{key}]: expected canonical"
+                                " interval notation (e.g. '(-1, 1)', '[1, 3)',"
+                                " '(-oo, oo)', '{0}')"
+                            )
+                    elif key == "radius":  # a number, or "oo"
+                        numeric = isinstance(value, list) and len(value) == 1
+                        infinite = isinstance(value, str) and value.strip() == "oo"
+                        if not (numeric or infinite):
+                            problems.append(
+                                f"fixtures[{index}].expect[radius]: expected [R]"
+                                " or 'oo'"
+                            )
+                continue
+            if operation == "taylor_polynomial":  # 'order' + optional 'center' (E2.16)
+                order = fixture.setup.get("order")
+                if not isinstance(order, int) or isinstance(order, bool) or order < 0:
+                    problems.append(
+                        f"fixtures[{index}].setup needs 'order' (an integer >= 0)"
+                    )
+                center = fixture.setup.get("center")
+                if center is not None and not (
+                    isinstance(center, int | float) and not isinstance(center, bool)
+                ):
+                    problems.append(f"fixtures[{index}].setup 'center' must be a number")
+                # the expression itself falls through to the standard checks below
             if operation == "parametric_slope":  # two expressions, no 'expression'
                 for key in ("x_expression", "y_expression"):
-                    value = fixture.setup.get(key)
-                    if not isinstance(value, str) or not value.strip():
+                    raw_value = fixture.setup.get(key)
+                    if not isinstance(raw_value, str) or not raw_value.strip():
                         problems.append(
                             f"fixtures[{index}].setup needs {key!r} (a non-empty string)"
                         )
                         continue
                     try:
-                        expr_symbols(value)
+                        expr_symbols(raw_value)
                     except ValueError as exc:
                         problems.append(f"fixtures[{index}].setup {key}: {exc}")
                 point = fixture.setup.get("point")

@@ -64,3 +64,9 @@ Every deliberate widening of the safe namespace, with its reason:
   expand to plain whitelisted arithmetic before parse (sum-like) or bind as
   precomputed scalars at input-binding time (order statistics) — the evaluation walk
   and the locked parse are untouched.
+- `factorial` (E2.16) — SCOPED, not general: admitted only in `series_convergence`
+  **terms** (`series_term_symbols`/`parse_series_term`), where it stays symbolic —
+  the ratio-test limit is symbolic manipulation, never a float evaluation, so the
+  integer-semantics objection to a general widening does not apply. It remains
+  rejected in formulas, cross-methods, and every other symbolic operation (a
+  regression test pins the boundary).
