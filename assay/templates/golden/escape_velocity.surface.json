@@ -17,8 +17,7 @@
    "resolve": {
     "library": "assay.constants",
     "key": "G"
-   },
-   "required": false
+   }
   }
  ],
  "method": {

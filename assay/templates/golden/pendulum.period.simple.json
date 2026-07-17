@@ -13,8 +13,7 @@
    "resolve": {
     "library": "assay.constants",
     "key": "g"
-   },
-   "required": false
+   }
   }
  ],
  "method": {

@@ -50,7 +50,7 @@
         "many": false,
         "name": "g",
         "dimension": "acceleration",
-        "required": false,
+        "required": true,
         "resolve": {
           "library": "assay.constants",
           "key": "g"

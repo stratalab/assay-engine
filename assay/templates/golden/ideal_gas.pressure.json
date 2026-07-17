@@ -21,8 +21,7 @@
    "resolve": {
     "library": "assay.constants",
     "key": "R"
-   },
-   "required": false
+   }
   }
  ],
  "method": {
