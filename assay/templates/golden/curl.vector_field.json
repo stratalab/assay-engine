@@ -1,0 +1,59 @@
+{
+ "id": "curl.vector_field",
+ "domain": "calculus",
+ "description": "Curl of a vector field (a 3-vector).",
+ "method": {
+  "kind": "symbolic",
+  "operation": "curl"
+ },
+ "output": {
+  "name": "curl",
+  "dimension": "dimensionless"
+ },
+ "fixtures": [
+  {
+   "setup": {
+    "field": [
+     "x**2*z",
+     "exp(y) + x*z",
+     "x*y*z"
+    ],
+    "variables": [
+     "x",
+     "y",
+     "z"
+    ]
+   },
+   "expect": {
+    "curl": [
+     "x*z - x",
+     "x**2 - y*z",
+     "z"
+    ]
+   }
+  },
+  {
+   "setup": {
+    "field": [
+     "y",
+     "0"
+    ],
+    "variables": [
+     "x",
+     "y"
+    ]
+   },
+   "expect": {
+    "curl": [
+     0,
+     0,
+     -1
+    ]
+   }
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

@@ -1,0 +1,61 @@
+{
+ "id": "integrate_multiple.iterated",
+ "domain": "calculus",
+ "description": "Iterated (double/triple) definite integral over a region.",
+ "method": {
+  "kind": "symbolic",
+  "operation": "integrate_multiple"
+ },
+ "output": {
+  "name": "integral",
+  "dimension": "dimensionless"
+ },
+ "fixtures": [
+  {
+   "setup": {
+    "expression": "3*x**2 - y",
+    "limits": [
+     [
+      "y",
+      0,
+      3
+     ],
+     [
+      "x",
+      0,
+      2
+     ]
+    ]
+   },
+   "expect": {
+    "integral": [
+     15
+    ]
+   }
+  },
+  {
+   "setup": {
+    "expression": "(1 - r**2)*r",
+    "limits": [
+     [
+      "r",
+      0,
+      1
+     ],
+     [
+      "theta",
+      0,
+      "2*pi"
+     ]
+    ]
+   },
+   "expect": {
+    "integral": "pi/2"
+   }
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

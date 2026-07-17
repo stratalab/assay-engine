@@ -20,7 +20,7 @@ same interface when its SDK ships.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from functools import lru_cache
 from string import Formatter
 from typing import Any, Protocol
@@ -189,20 +189,58 @@ def validate_candidate(ir: IR, catalog: Sequence[Template]) -> Template:
                 )
                 break
     if isinstance(template.method, SymbolicMethod):
-        raw = ir.setup.get("expression")
-        if not isinstance(raw, str) or not raw.strip():
-            reasons.append(
-                f"template {template.id!r} needs setup 'expression' (a non-empty string)"
-            )
-        else:
-            for side in raw.split("="):
-                try:
-                    expr_symbols(side.strip())  # the parse-only gate — before execution
-                except ValueError as exc:
-                    reasons.append(f"setup expression rejected: {exc}")
+        reasons += _symbolic_setup_reasons(template, ir.setup)
     if reasons:
         raise CandidateIRError(reasons)
     return template
+
+
+# The setup key each symbolic operation carries its problem in — so the pre-execution
+# gate (defense in depth; the executor gates everything again) checks the right one.
+# ``equation`` (y'/y'' notation) and ``field`` skip the expr gate here — ``parse_ode``
+# and the per-component parse do it at execution.
+_SYMBOLIC_SETUP_KEY = {
+    "solve": "expression", "integrate": "expression", "differentiate": "expression",
+    "limit": "expression", "solve_inequality": "expression",
+    "taylor_polynomial": "expression", "partial_derivative": "expression",
+    "gradient": "expression", "directional_derivative": "expression",
+    "integrate_multiple": "expression", "series_convergence": "term",
+    "parametric_slope": "x_expression", "ode_solve": "equation",
+    "divergence": "field", "curl": "curl",
+}
+
+
+def _symbolic_setup_reasons(template: Template, setup: Mapping[str, Any]) -> list[str]:
+    assert isinstance(template.method, SymbolicMethod)
+    operation = template.method.operation
+    reasons: list[str] = []
+    if operation in ("divergence", "curl"):
+        field = setup.get("field")
+        if not isinstance(field, list) or not field or not all(isinstance(c, str) for c in field):
+            return [f"template {template.id!r} needs setup 'field' (component expressions)"]
+        for component in field:
+            try:
+                expr_symbols(component)
+            except ValueError as exc:
+                reasons.append(f"setup field component rejected: {exc}")
+        return reasons
+    if operation == "parametric_slope":
+        keys = ["x_expression", "y_expression"]
+    else:
+        keys = [_SYMBOLIC_SETUP_KEY.get(operation, "expression")]
+    for key in keys:
+        raw = setup.get(key)
+        if not isinstance(raw, str) or not raw.strip():
+            reasons.append(f"template {template.id!r} needs setup {key!r} (a non-empty string)")
+            continue
+        if key == "equation":  # y'/y'' notation — parse_ode gates it at execution
+            continue
+        for side in raw.split("="):
+            try:
+                expr_symbols(side.strip())  # the parse-only gate — before execution
+            except ValueError as exc:
+                reasons.append(f"setup {key} rejected: {exc}")
+    return reasons
 
 
 # --- the deterministic reference backend (the shipped stage of the seam) -------------

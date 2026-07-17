@@ -1,0 +1,60 @@
+{
+ "id": "divergence.vector_field",
+ "domain": "calculus",
+ "description": "Divergence of a vector field.",
+ "method": {
+  "kind": "symbolic",
+  "operation": "divergence"
+ },
+ "output": {
+  "name": "divergence",
+  "dimension": "dimensionless"
+ },
+ "fixtures": [
+  {
+   "setup": {
+    "field": [
+     "exp(x)",
+     "y*z",
+     "-y*z**2"
+    ],
+    "variables": [
+     "x",
+     "y",
+     "z"
+    ]
+   },
+   "expect": {
+    "divergence": "exp(x) + z - 2*y*z"
+   }
+  },
+  {
+   "setup": {
+    "field": [
+     "exp(x)",
+     "y*z",
+     "-y*z**2"
+    ],
+    "variables": [
+     "x",
+     "y",
+     "z"
+    ],
+    "point": {
+     "x": 0,
+     "y": 2,
+     "z": -1
+    }
+   },
+   "expect": {
+    "divergence": [
+     4
+    ]
+   }
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

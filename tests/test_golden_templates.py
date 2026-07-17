@@ -68,6 +68,14 @@ def test_the_shipped_goldens() -> None:
         "limit.univariate",
         "inequality.univariate",
         "relativistic_kinetic_energy.point_mass",
+        # E2.17 multivariable operation demos
+        "partial_derivative.scalar_field",
+        "gradient.scalar_field",
+        "directional_derivative.scalar_field",
+        "integrate_multiple.iterated",
+        "divergence.vector_field",
+        "curl.vector_field",
+        "ode_solve.second_order_linear",
     }
 
 

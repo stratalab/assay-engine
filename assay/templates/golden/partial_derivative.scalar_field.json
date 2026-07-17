@@ -1,0 +1,42 @@
+{
+ "id": "partial_derivative.scalar_field",
+ "domain": "calculus",
+ "description": "Partial derivative of a scalar field (the wrt chain: higher, mixed).",
+ "method": {
+  "kind": "symbolic",
+  "operation": "partial_derivative"
+ },
+ "output": {
+  "name": "partial_derivative",
+  "dimension": "dimensionless"
+ },
+ "fixtures": [
+  {
+   "setup": {
+    "expression": "x**2 - 3*x*y + 2*y**2 - 4*x + 5*y - 12",
+    "wrt": [
+     "x"
+    ]
+   },
+   "expect": {
+    "partial_derivative": "2*x - 3*y - 4"
+   }
+  },
+  {
+   "setup": {
+    "expression": "x*exp(-3*y) + sin(2*x - 5*y)",
+    "wrt": [
+     "x",
+     "y"
+    ]
+   },
+   "expect": {
+    "partial_derivative": "-3*exp(-3*y) + 10*sin(2*x - 5*y)"
+   }
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

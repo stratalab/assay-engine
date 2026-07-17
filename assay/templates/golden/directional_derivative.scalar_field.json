@@ -1,0 +1,41 @@
+{
+ "id": "directional_derivative.scalar_field",
+ "domain": "calculus",
+ "description": "Directional derivative of a scalar field along a unit vector.",
+ "method": {
+  "kind": "symbolic",
+  "operation": "directional_derivative"
+ },
+ "output": {
+  "name": "directional_derivative",
+  "dimension": "dimensionless"
+ },
+ "fixtures": [
+  {
+   "setup": {
+    "expression": "x**2 - x*y + 3*y**2",
+    "variables": [
+     "x",
+     "y"
+    ],
+    "direction": [
+     3,
+     4
+    ],
+    "point": {
+     "x": -1,
+     "y": 2
+    }
+   },
+   "expect": {
+    "directional_derivative": [
+     8
+    ]
+   }
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

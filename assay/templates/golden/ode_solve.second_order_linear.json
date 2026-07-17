@@ -1,0 +1,45 @@
+{
+ "id": "ode_solve.second_order_linear",
+ "domain": "calculus",
+ "description": "General or initial-value solution of a constant-coefficient second-order linear ODE.",
+ "method": {
+  "kind": "symbolic",
+  "operation": "ode_solve"
+ },
+ "output": {
+  "name": "solution",
+  "dimension": "dimensionless"
+ },
+ "fixtures": [
+  {
+   "setup": {
+    "equation": "y'' + 9*y' + 14*y = 0"
+   },
+   "expect": {
+    "solution": "c1*exp(-2*x) + c2*exp(-7*x)"
+   }
+  },
+  {
+   "setup": {
+    "equation": "y'' + 3*y' - 4*y = 0",
+    "ivp": {
+     "y": [
+      0,
+      1
+     ],
+     "y'": [
+      0,
+      -9
+     ]
+    }
+   },
+   "expect": {
+    "solution": "2*exp(-4*x) - exp(x)"
+   }
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

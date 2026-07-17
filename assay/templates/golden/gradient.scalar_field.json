@@ -1,0 +1,53 @@
+{
+ "id": "gradient.scalar_field",
+ "domain": "calculus",
+ "description": "Gradient of a scalar field.",
+ "method": {
+  "kind": "symbolic",
+  "operation": "gradient"
+ },
+ "output": {
+  "name": "gradient",
+  "dimension": "dimensionless"
+ },
+ "fixtures": [
+  {
+   "setup": {
+    "expression": "x**2 - x*y + 3*y**2",
+    "variables": [
+     "x",
+     "y"
+    ]
+   },
+   "expect": {
+    "gradient": [
+     "2*x - y",
+     "-x + 6*y"
+    ]
+   }
+  },
+  {
+   "setup": {
+    "expression": "3*x**2 - 4*x*y + 2*y**2",
+    "variables": [
+     "x",
+     "y"
+    ],
+    "point": {
+     "x": -2,
+     "y": 3
+    }
+   },
+   "expect": {
+    "gradient": [
+     -24,
+     20
+    ]
+   }
+  }
+ ],
+ "provenance": {
+  "source": "assay:demo",
+  "license_tier": "open"
+ }
+}

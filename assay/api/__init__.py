@@ -136,6 +136,18 @@ class TemplateSummary(BaseModel):
     status: str
 
 
+class OperationSummary(BaseModel):
+    """A curated symbolic operation and a template that serves it — the map the web
+    UI's structured-operations panel needs to build an IR for ops the NL box can't
+    reach from prose (the multivariable family, series, ODE)."""
+
+    model_config = ConfigDict(extra="forbid")
+    operation: str
+    task: str  # a representative template id (the runner)
+    domain: str
+    description: str
+
+
 def _served(template_id: str, catalog: dict[str, Template]) -> Template:
     """The serving gate, same as every surface (E2.2, A-14): promote at the point of
     use or refuse with the reason."""
@@ -226,6 +238,24 @@ def create_app() -> FastAPI:
         from assay.templates import taxonomy
 
         return taxonomy()
+
+    @app.get("/v1/operations")
+    async def operations() -> list[OperationSummary]:
+        """Every curated symbolic operation and one template that serves it — the web
+        UI builds a structured IR against ``task`` for the ops NL can't extract."""
+        from assay.templates import SymbolicMethod
+
+        seen: dict[str, OperationSummary] = {}
+        for template in sorted(full_catalog(), key=lambda t: t.id):
+            method = template.method
+            if isinstance(method, SymbolicMethod) and method.operation not in seen:
+                seen[method.operation] = OperationSummary(
+                    operation=method.operation,
+                    task=template.id,
+                    domain=template.domain,
+                    description=template.description,
+                )
+        return [seen[key] for key in sorted(seen)]
 
     @app.post("/v1/ask")
     async def ask(request: AskRequest) -> AskResponse:

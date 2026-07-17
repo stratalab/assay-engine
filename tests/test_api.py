@@ -107,6 +107,32 @@ def test_domains_lists_the_catalog(client: TestClient) -> None:
     assert all(entry["status"] == "candidate" for entry in body)  # honest until gated
 
 
+def test_operations_endpoint_maps_ops_to_runners(client: TestClient) -> None:
+    """The web Operations panel needs op → template; each entry runs via /v1/run."""
+    ops = {o["operation"]: o for o in client.get("/v1/operations").json()}
+    assert {"gradient", "ode_solve", "divergence", "curl", "integrate_multiple"} <= set(ops)
+    assert ops["gradient"]["task"] and ops["gradient"]["domain"]
+
+
+def test_structured_operation_runs_through_run(client: TestClient) -> None:
+    """The panel's path: a structured IR for ops the NL box can't reach from prose —
+    ode_solve (setup 'equation', not 'expression') and a vector-valued gradient. The
+    task ids come from /v1/operations, so this holds whatever catalog is installed."""
+    ops = {o["operation"]: o for o in client.get("/v1/operations").json()}
+    ode_task = ops["ode_solve"]
+    ode = client.post("/v1/run", json={"ir": {
+        "domain": ode_task["domain"], "task": ode_task["task"],
+        "setup": {"equation": "y'' + 3*y' - 4*y = 0", "ivp": {"y": [0, 1], "y'": [0, -9]}},
+    }}).json()
+    assert ode["outcome"] == "answer" and ode["answer"]["verified"]["ok"]
+    grad_task = ops["gradient"]
+    grad = client.post("/v1/run", json={"ir": {
+        "domain": grad_task["domain"], "task": grad_task["task"],
+        "setup": {"expression": "x**2 - x*y + 3*y**2", "variables": ["x", "y"]},
+    }}).json()
+    assert [v["value"] for v in grad["answer"]["result"]] == ["2*x - y", "-x + 6*y"]
+
+
 def test_health_names_the_pinned_versions(client: TestClient) -> None:
     body = client.get("/v1/health").json()
     assert body["status"] == "ok"

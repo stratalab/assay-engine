@@ -6,286 +6,346 @@
 <title>assay — the glass box</title>
 <style>
   :root {
-    --bg: #0f1115; --panel: #171a21; --line: #262b36; --text: #e6e9ef;
-    --dim: #9aa3b2; --ok: #4cc38a; --bad: #e5484d; --accent: #7aa2f7; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --bg: #0f1115; --panel: #171a21; --panel-2: #1c2029; --line: #262b36;
+    --text: #e6e9ef; --dim: #9aa3b2; --faint: #6b7385;
+    --ok: #4cc38a; --bad: #e5484d; --accent: #7aa2f7; --accent-soft: rgba(122,162,247,.12);
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f0f2f5; --line: #e2e5ea;
+      --text: #1a1d24; --dim: #5a6272; --faint: #8a92a2;
+      --ok: #1a9c5f; --bad: #d13438; --accent: #3b64d0; --accent-soft: rgba(59,100,208,.10);
+    }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 system-ui, sans-serif; }
-  main { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
-  h1 { font-size: 22px; margin: 0 0 4px; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.6 system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+  main { max-width: 920px; margin: 0 auto; padding: 40px 20px 100px; }
+
+  header { margin-bottom: 26px; }
+  h1 { font-size: 26px; font-weight: 680; margin: 0 0 6px; letter-spacing: -.01em; }
   h1 span { color: var(--accent); }
-  p.tag { color: var(--dim); margin: 0 0 24px; font-size: 14px; }
+  p.tag { color: var(--dim); margin: 0; font-size: 14.5px; max-width: 64ch; }
+  .stat { margin-top: 12px; font-size: 13px; color: var(--faint); font-family: var(--mono); }
+  .stat b { color: var(--dim); font-weight: 600; }
+
+  .tabs { display: inline-flex; gap: 2px; background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 999px; padding: 3px; margin: 22px 0 18px; }
+  .tabs button { background: none; border: 0; color: var(--dim); font: inherit; font-size: 14px;
+    font-weight: 550; padding: 7px 18px; border-radius: 999px; cursor: pointer; }
+  .tabs button.on { background: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: light) { .tabs button.on { color: #fff; } }
+
+  .pane { display: none; }
+  .pane.on { display: block; }
+
   form.ask { display: flex; gap: 8px; }
-  input, button { font: inherit; }
-  input[type=text] { flex: 1; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
-  input[type=text]:focus { outline: none; border-color: var(--accent); }
-  button { background: var(--accent); color: #0b0d12; border: 0; border-radius: 8px; padding: 10px 18px; font-weight: 600; cursor: pointer; }
-  button.ghost { background: var(--panel); color: var(--text); border: 1px solid var(--line); font-weight: 400; }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
-  .chips button { background: var(--panel); color: var(--dim); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 400; }
+  input, button, select, textarea { font: inherit; }
+  input[type=text], select, textarea { width: 100%; background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: 9px; padding: 11px 14px; }
+  input[type=text]:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  form.ask input { flex: 1; }
+  button.go { background: var(--accent); color: #fff; border: 0; border-radius: 9px;
+    padding: 11px 22px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  button.go:hover { filter: brightness(1.07); }
+  button.ghost { background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 9px; padding: 9px 16px; font-weight: 500; cursor: pointer; }
+  button.ghost:hover { border-color: var(--accent); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+  .chips button { background: var(--panel); color: var(--dim); border: 1px solid var(--line);
+    border-radius: 999px; padding: 5px 13px; font-size: 12.5px; cursor: pointer; }
   .chips button:hover { color: var(--text); border-color: var(--accent); }
-  #out { margin-top: 28px; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
-  .headline { font-size: 20px; font-weight: 650; font-family: var(--mono); }
-  .badge { display: inline-block; font-size: 12px; border-radius: 999px; padding: 2px 10px; margin-left: 10px; vertical-align: 2px; }
-  .badge.ok { background: rgba(76,195,138,.15); color: var(--ok); }
-  .badge.bad { background: rgba(229,72,77,.15); color: var(--bad); }
-  table.bands { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
-  table.bands td { padding: 6px 0; vertical-align: top; border-top: 1px solid var(--line); }
-  table.bands td.k { color: var(--dim); width: 130px; padding-right: 12px; white-space: nowrap; }
+  .chips .lbl { align-self: center; font-size: 12px; color: var(--faint); margin-right: 2px; }
+
+  #out { margin-top: 26px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px 22px; margin-bottom: 14px; }
+  .headline { font-size: 21px; font-weight: 660; font-family: var(--mono); line-height: 1.4;
+    word-break: break-word; }
+  .headline .vec { color: var(--accent); }
+  .badge { display: inline-block; font-size: 11.5px; font-weight: 600; border-radius: 999px;
+    padding: 2px 10px; margin-left: 10px; vertical-align: 3px; }
+  .badge.ok { background: rgba(76,195,138,.16); color: var(--ok); }
+  .badge.bad { background: rgba(229,72,77,.16); color: var(--bad); }
+
+  table.bands { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 14px; }
+  table.bands td { padding: 8px 0; vertical-align: top; border-top: 1px solid var(--line); }
+  table.bands td.k { color: var(--dim); width: 128px; padding-right: 14px; white-space: nowrap; }
   .mono { font-family: var(--mono); font-size: 13px; }
   .ok { color: var(--ok); } .bad { color: var(--bad); } .dim { color: var(--dim); }
-  details { margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; }
-  details summary { cursor: pointer; padding: 8px 12px; color: var(--dim); font-size: 13px; }
-  details[open] summary { border-bottom: 1px solid var(--line); color: var(--text); }
-  details pre { margin: 0; padding: 12px; overflow-x: auto; font-size: 12.5px; font-family: var(--mono); color: var(--text); }
-  /* the execution trace (E2.15): the worked example, as a first-class element */
-  .steps { margin: 14px 0 4px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-  .steps-title { padding: 8px 14px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); border-bottom: 1px solid var(--line); }
+
+  .steps { margin: 16px 0 4px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .steps-title { padding: 9px 15px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--dim); border-bottom: 1px solid var(--line); background: var(--panel-2); }
   .steps-title b { color: var(--text); font-weight: 600; text-transform: none; letter-spacing: 0; }
-  .step { display: flex; align-items: baseline; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .step { display: flex; align-items: baseline; gap: 13px; padding: 11px 15px; border-bottom: 1px solid var(--line); }
   .step:last-child { border-bottom: 0; }
-  .step.result { background: rgba(122,162,247,.07); }
+  .step.result { background: var(--accent-soft); }
   .step-n { flex: 0 0 22px; height: 22px; border-radius: 50%; background: var(--line); color: var(--dim);
-            font-size: 12px; display: flex; align-items: center; justify-content: center; align-self: center; }
-  .step.result .step-n { background: var(--accent); color: #0b0d12; font-weight: 700; }
+    font-size: 12px; display: flex; align-items: center; justify-content: center; align-self: center; }
+  .step.result .step-n { background: var(--accent); color: #fff; font-weight: 700; }
   .step-body { flex: 1; min-width: 0; }
   .step-expr { font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
   .step-expr b { color: var(--accent); font-weight: 600; }
   .step-note { color: var(--dim); font-size: 12.5px; margin-top: 2px; }
   .step-val { font-family: var(--mono); font-size: 14px; white-space: nowrap; text-align: right; }
   .step.result .step-val { font-weight: 700; }
-  .state { border-left: 3px solid var(--accent); }
-  .state.refuse { border-left-color: var(--bad); }
-  .missing-row { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
-  .missing-row label { font-family: var(--mono); font-size: 14px; min-width: 40px; }
+
+  details { margin-top: 10px; border: 1px solid var(--line); border-radius: 9px; }
+  details summary { cursor: pointer; padding: 9px 14px; color: var(--dim); font-size: 13px;
+    list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; color: var(--faint); }
+  details[open] summary::before { content: "▾ "; }
+  details[open] summary { border-bottom: 1px solid var(--line); color: var(--text); }
+  details pre { margin: 0; padding: 13px; overflow-x: auto; font-size: 12.5px;
+    font-family: var(--mono); color: var(--text); }
+
+  .card.state { border-left: 3px solid var(--accent); }
+  .card.state.refuse { border-left-color: var(--bad); }
+  .missing-row { display: flex; gap: 8px; align-items: center; margin: 9px 0; flex-wrap: wrap; }
+  .missing-row label { font-family: var(--mono); font-size: 14px; min-width: 44px; }
   .missing-row input { width: 220px; }
   .missing-row .dim { font-size: 13px; }
-  .option { display: block; width: 100%; text-align: left; margin: 6px 0; }
-  footer { margin-top: 40px; color: var(--dim); font-size: 13px; }
-  footer h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; margin: 0 0 8px; }
-  .domain { margin: 6px 0; }
-  .domain b { color: var(--text); font-weight: 600; }
+  .option { display: block; width: 100%; text-align: left; margin: 7px 0; }
+
+  /* operations form */
+  .op-form { display: grid; gap: 14px; }
+  .op-row { display: grid; grid-template-columns: 128px 1fr; gap: 12px; align-items: start; }
+  .op-row > label { color: var(--dim); font-size: 14px; padding-top: 10px; }
+  .op-row .field { display: flex; flex-direction: column; gap: 4px; }
+  .op-row .hint { font-size: 12px; color: var(--faint); font-family: var(--mono); }
+  .op-actions { display: flex; gap: 10px; margin-top: 2px; }
+  select { appearance: none; background-image:
+    linear-gradient(45deg, transparent 50%, var(--dim) 50%),
+    linear-gradient(135deg, var(--dim) 50%, transparent 50%);
+    background-position: calc(100% - 18px) 55%, calc(100% - 13px) 55%;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 34px; }
+
+  /* browse catalog */
+  .browse-search { margin-bottom: 14px; }
+  .subject { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px;
+    background: var(--panel); overflow: hidden; }
+  .subject > summary { padding: 13px 16px; font-weight: 600; font-size: 15px; }
+  .subject > summary .count { color: var(--faint); font-weight: 400; font-family: var(--mono);
+    font-size: 13px; margin-left: 8px; }
+  .topic { padding: 2px 16px 10px 30px; }
+  .topic-name { color: var(--dim); font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+    margin: 12px 0 6px; }
+  .tpl { display: flex; gap: 10px; align-items: baseline; padding: 5px 0; border-top: 1px solid var(--line); }
+  .tpl:first-of-type { border-top: 0; }
+  .tpl .id { font-family: var(--mono); font-size: 12.5px; color: var(--accent); flex: 0 0 auto; }
+  .tpl .desc { color: var(--dim); font-size: 13px; flex: 1; min-width: 0; }
+  .tpl.run { cursor: pointer; }
+  .tpl.run:hover .id { text-decoration: underline; }
+  .dot { font-size: 10px; vertical-align: 1px; }
+  .dot.verified { color: var(--ok); } .dot.candidate { color: var(--faint); }
   .err { color: var(--bad); }
+  .loading { color: var(--dim); font-size: 14px; }
 </style>
 </head>
 <body>
 <main>
-  <h1><span>assay</span> — the glass box</h1>
-  <p class="tag">Ask a computable question. Every answer is executable, inspectable, reproducible —
-  facts come from curated sources, never from a model.</p>
+  <header>
+    <h1><span>assay</span> — the glass box</h1>
+    <p class="tag">Ask a computable question, run a curated operation, or browse the catalog.
+      Every answer is executable, inspectable, and reproducible — facts come from trusted
+      sources, never from a model.</p>
+    <div class="stat" id="stat"></div>
+  </header>
 
-  <form class="ask" id="askform">
-    <input type="text" id="question" placeholder="e.g. max deflection of a simply supported steel beam, 5 kN center load, 2 m span, I = 8.33e-6 m^4" autofocus>
-    <button type="submit">Ask</button>
-  </form>
-  <div class="chips" id="chips"></div>
+  <div class="tabs" id="tabs">
+    <button data-tab="ask" class="on">Ask</button>
+    <button data-tab="ops">Operations</button>
+    <button data-tab="browse">Browse</button>
+  </div>
+
+  <!-- ASK -->
+  <section class="pane on" id="pane-ask">
+    <form class="ask" id="askform">
+      <input type="text" id="question" autofocus
+        placeholder="e.g. max deflection of a simply supported steel beam, 5 kN center load, 2 m span, I = 8.33e-6 m^4">
+      <button class="go" type="submit">Ask</button>
+    </form>
+    <div class="chips" id="chips"><span class="lbl">try</span></div>
+  </section>
+
+  <!-- OPERATIONS -->
+  <section class="pane" id="pane-ops">
+    <div class="op-form" id="op-form">
+      <div class="op-row">
+        <label for="op-select">operation</label>
+        <div class="field">
+          <select id="op-select"></select>
+          <span class="hint" id="op-desc"></span>
+        </div>
+      </div>
+      <div id="op-fields"></div>
+      <div class="op-row"><label></label>
+        <div class="op-actions">
+          <button class="go" id="op-run">Run</button>
+          <button class="ghost" id="op-example" type="button">Load example</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BROWSE -->
+  <section class="pane" id="pane-browse">
+    <input type="text" class="browse-search" id="browse-search" placeholder="filter the catalog…">
+    <div id="catalog" class="loading">loading the catalog…</div>
+  </section>
 
   <div id="out"></div>
-
-  <footer>
-    <h2>Covered domains</h2>
-    <div id="domains" class="mono dim">loading…</div>
-  </footer>
 </main>
 
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
-  const node = document.createElement(tag);
-  if (cls) node.className = cls;
-  if (text !== undefined) node.textContent = text;
-  return node;
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined) n.textContent = text;
+  return n;
 };
 
-const EXAMPLES = [
-  "solve x^2 - 5x + 6 = 0",
-  "derivative of x^3 - x",
-  "period of a simple pendulum 1 m long",
-  "schwarzschild radius of a black hole of mass 1.989e30 kg",
-  "heat to warm 2 kg of water by 10 K",
-  "max deflection of a simply supported steel beam, 5 kN center load, 2 m span",
-];
+/* ---------- display helpers ---------- */
+const SUP = { 0:"⁰",1:"¹",2:"²",3:"³",4:"⁴",5:"⁵",6:"⁶",7:"⁷",8:"⁸",9:"⁹" };
+function prettyUnit(u) {
+  return (u || "").replace(/\s*\*\*\s*(\d+)/g, (_m,d)=>[...d].map(c=>SUP[c]||c).join(""))
+                  .replace(/(\S)\s\*\s(\S)/g, "$1·$2");
+}
+function fmt(v) {
+  if (typeof v === "number") return Number(v.toPrecision(6)).toString();
+  return String(v);
+}
 
-let lastQuestion = "";
-
+/* ---------- network ---------- */
 async function post(path, body) {
-  const response = await fetch(path, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await response.json().catch(() => ({}));
-  return { status: response.status, data };
+  const r = await fetch(path, { method:"POST", headers:{"content-type":"application/json"},
+    body: JSON.stringify(body) });
+  return { status: r.status, data: await r.json().catch(()=>({})) };
 }
 
-function fmt(value) {
-  if (typeof value === "number") return Number(value.toPrecision(6)).toString();
-  return String(value);
+/* ---------- answer rendering (shared by Ask + Operations) ---------- */
+function bandsTable(rows) {
+  const t = el("table","bands");
+  for (const [k,v] of rows) {
+    if (v == null || v === "") continue;
+    const tr = el("tr"); tr.appendChild(el("td","k",k));
+    const td = el("td");
+    if (v instanceof Node) td.appendChild(v); else td.textContent = v;
+    tr.appendChild(td); t.appendChild(tr);
+  }
+  return t;
 }
-
-// display-only unit prettification: "kilogram / meter / second ** 2" reads as
-// "kilogram / meter / second²" — the artifact keeps the exact raw form
-const SUP = { 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
-function prettyUnit(unit) {
-  return (unit || "")
-    .replace(/\s*\*\*\s*(\d+)/g, (_m, d) => [...d].map((c) => SUP[c] || c).join(""))
-    .replace(/(\S)\s\*\s(\S)/g, "$1·$2");
+function drilldown(title, payload) {
+  const d = el("details"); d.appendChild(el("summary", null, title));
+  d.appendChild(el("pre", null, JSON.stringify(payload, null, 2))); return d;
 }
-
-// the worked example (E2.15): each row is the literal computation record — the
-// step's authored expression and the value the executor actually computed
 function stepsBlock(steps) {
-  const box = el("div", "steps");
-  const title = el("div", "steps-title");
-  title.append("Worked steps — ", el("b", null, "each line is the actual computation, not a narration"));
+  const box = el("div","steps");
+  const title = el("div","steps-title");
+  title.append("Worked steps — ", el("b",null,"each line is the actual computation, not a narration"));
   box.appendChild(title);
-  steps.forEach((step, index) => {
-    const row = el("div", "step" + (index === steps.length - 1 ? " result" : ""));
-    row.appendChild(el("div", "step-n", String(index + 1)));
-    const body = el("div", "step-body");
-    const expr = el("div", "step-expr");
-    expr.appendChild(el("b", null, step.label));
-    if (step.expr) expr.append(" = " + step.expr);
+  steps.forEach((s,i) => {
+    const row = el("div","step" + (i===steps.length-1?" result":""));
+    row.appendChild(el("div","step-n", String(i+1)));
+    const body = el("div","step-body");
+    const expr = el("div","step-expr"); expr.appendChild(el("b",null,s.label));
+    if (s.expr) expr.append(" = " + s.expr);
     body.appendChild(expr);
-    if (step.note) body.appendChild(el("div", "step-note", step.note));
+    if (s.note) body.appendChild(el("div","step-note", s.note));
     row.appendChild(body);
-    row.appendChild(el("div", "step-val", `${fmt(step.value)} ${prettyUnit(step.unit)}`.trim()));
+    row.appendChild(el("div","step-val", `${fmt(s.value)} ${prettyUnit(s.unit)}`.trim()));
     box.appendChild(row);
   });
   return box;
 }
-
-function render(node) {
-  const out = $("out");
-  out.replaceChildren(node);
-}
-
-function bandsTable(rows) {
-  const table = el("table", "bands");
-  for (const [key, value] of rows) {
-    const tr = el("tr");
-    tr.appendChild(el("td", "k", key));
-    const td = el("td");
-    if (value instanceof Node) td.appendChild(value); else td.textContent = value;
-    tr.appendChild(td);
-    table.appendChild(tr);
+function headline(result) {
+  if (!result.length) return "answer withheld";
+  // a vector result (gradient/curl: labels share a grad_/curl_ prefix) renders as [ … ]
+  const pre = result[0].label.split("_")[0];
+  const isVec = result.length > 1 && result.every(v => v.label.startsWith(pre + "_"));
+  if (isVec) {
+    const sym = pre === "grad" ? "∇f" : pre === "curl" ? "∇×F" : pre;
+    return { sym, body: "[" + result.map(v => `${fmt(v.value)}${v.unit?" "+prettyUnit(v.unit):""}`).join(", ") + "]" };
   }
-  return table;
+  return { body: result.map(v => `${v.label} = ${fmt(v.value)}${v.unit?" "+prettyUnit(v.unit):""}`).join("  ,  ") };
 }
-
-function drilldown(title, payload) {
-  const details = el("details");
-  details.appendChild(el("summary", null, title));
-  details.appendChild(el("pre", null, JSON.stringify(payload, null, 2)));
-  return details;
-}
-
 function renderAnswer(body) {
   const { answer, artifact } = body;
-  const card = el("div", "card");
+  const card = el("div","card");
   const ok = answer.verified.ok;
-
-  const head = el("div", "headline");
-  if (answer.result.length) {
-    head.textContent = answer.result
-      .map((v) => `${v.label} = ${fmt(v.value)}${v.unit ? " " + prettyUnit(v.unit) : ""}`)
-      .join(" ,  ");
-  } else {
-    head.textContent = "answer withheld";
-  }
-  head.appendChild(el("span", "badge " + (ok ? "ok" : "bad"), ok ? "verified" : "withheld"));
+  const head = el("div","headline");
+  const hl = headline(answer.result);
+  if (typeof hl === "string") head.textContent = hl;
+  else { if (hl.sym) { head.appendChild(el("span","vec", hl.sym + " = ")); } head.append(hl.body); }
+  head.appendChild(el("span","badge " + (ok?"ok":"bad"), ok?"verified":"withheld"));
   card.appendChild(head);
-
-  if (!ok) {
-    card.appendChild(el("p", "bad", "I computed a candidate answer but could not verify it, so I'm not returning it:"));
-  }
-
-  const verified = el("div", "mono");
-  for (const check of answer.verified.checks) {
-    const line = el("div", check.ok ? "ok" : "bad", (check.ok ? "✓ " : "✗ ") + check.name + (check.detail ? " — " + check.detail : ""));
-    verified.appendChild(line);
-  }
-
-  const facts = el("div", "mono");
-  if (answer.facts.length) {
-    for (const fact of answer.facts) {
-      facts.appendChild(el("div", null,
-        `${fact.name} = ${fmt(fact.value)} ${fact.unit} · ${fact.source.library} ${fact.source.key} v${fact.source.version}   [resolved, not assumed]`));
-    }
-  } else {
-    facts.appendChild(el("span", "dim", "(no resolved facts)"));
-  }
+  if (!ok) card.appendChild(el("p","bad","I computed a candidate answer but could not verify it, so I'm not returning it:"));
 
   card.appendChild(bandsTable([
     ["Interpretation", answer.interpretation],
-    ["Method", el("span", "mono", answer.method)],
-  ]));
-  // the execution trace (E2.15), as a first-class worked example
-  const steps = answer.steps || [];
-  if (steps.length > 1 || steps.some((s) => s.note)) {
-    card.appendChild(stepsBlock(steps));
-  }
-  card.appendChild(bandsTable([
-    ["Facts", facts],
-    ["Verified", verified],
+    ["Method", el("span","mono", answer.method)],
   ]));
 
-  // the glass box: the IR and the artifact, one click deep — data, not a form
+  const steps = answer.steps || [];
+  if (steps.length > 1 || steps.some(s=>s.note)) card.appendChild(stepsBlock(steps));
+
+  const facts = el("div","mono");
+  if (answer.facts.length) for (const f of answer.facts)
+    facts.appendChild(el("div", null, `${f.name} = ${fmt(f.value)} ${f.unit} · ${f.source.library} ${f.source.key} v${f.source.version}   [resolved, not assumed]`));
+  else facts.appendChild(el("span","dim","(no resolved facts)"));
+
+  const verified = el("div","mono");
+  for (const c of answer.verified.checks)
+    verified.appendChild(el("div", c.ok?"ok":"bad", (c.ok?"✓ ":"✗ ")+c.name+(c.detail?" — "+c.detail:"")));
+
+  card.appendChild(bandsTable([["Facts", facts], ["Verified", verified]]));
   card.appendChild(drilldown("IR — what was understood, as data", artifact.ir));
   card.appendChild(drilldown("Artifact — rerun this exact computation", artifact));
 
-  const producer = artifact.ir.produced_by;
-  if (producer) {
-    const caveat = producer.provider === "assay" ? "" : "   (re-asking may read differently; the artifact reruns this exact IR)";
-    card.appendChild(el("p", "dim mono", `NL→IR: ${producer.provider} ${producer.model}${caveat}`));
-  }
+  const p = artifact.ir.produced_by;
+  if (p) card.appendChild(el("p","dim mono",
+    `NL→IR: ${p.provider} ${p.model}` + (p.provider==="assay"?"":"   (re-asking may read differently; the artifact reruns this exact IR)")));
 
-  const save = el("button", "ghost", "Download artifact (.result.json)");
+  const save = el("button","ghost","Download artifact (.result.json)");
   save.addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify(artifact, null, 2)], { type: "application/json" });
-    const link = el("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "assay.result.json";
-    link.click();
-    URL.revokeObjectURL(link.href);
+    const blob = new Blob([JSON.stringify(artifact,null,2)],{type:"application/json"});
+    const a = el("a"); a.href = URL.createObjectURL(blob); a.download = "assay.result.json";
+    a.click(); URL.revokeObjectURL(a.href);
   });
   card.appendChild(save);
   render(card);
 }
-
 function renderMissing(body) {
-  const card = el("div", "card state");
-  const count = body.needed.length === 1 ? "one input" : `${body.needed.length} inputs`;
-  card.appendChild(el("div", null, `I need ${count} to answer this — nothing will be fabricated:`));
+  const card = el("div","card state");
+  card.appendChild(el("div", null, `I need ${body.needed.length===1?"one input":body.needed.length+" inputs"} to answer this — nothing will be fabricated:`));
   const fields = [];
   for (const need of body.needed) {
-    const row = el("div", "missing-row");
+    const row = el("div","missing-row");
     row.appendChild(el("label", null, need.name));
-    const input = el("input");
-    input.type = "text";
-    input.placeholder = "value unit, e.g. 8.33e-6 m^4";
-    fields.push([need.name, input]);
-    row.appendChild(input);
-    row.appendChild(el("span", "dim", "dimension " + need.dimension));
+    const input = el("input"); input.type="text"; input.placeholder="value unit, e.g. 8.33e-6 m^4";
+    fields.push([need.name, input]); row.appendChild(input);
+    row.appendChild(el("span","dim","dimension "+need.dimension));
     card.appendChild(row);
-    if (need.reason) card.appendChild(el("div", "dim mono", "  " + need.reason));
+    if (need.reason) card.appendChild(el("div","dim mono","  "+need.reason));
   }
   const resolved = Object.entries(body.ir.resolved || {});
-  if (resolved.length) {
-    const lines = resolved.map(([name, fact]) =>
-      `${name} = ${fmt(fact.value)} ${fact.unit} (${fact.source.library} ${fact.source.key} v${fact.source.version})`);
-    card.appendChild(el("p", "dim mono", "Resolved   " + lines.join(",  ")));
-  }
-  const compute = el("button", null, "Compute");
+  if (resolved.length) card.appendChild(el("p","dim mono","Resolved   " +
+    resolved.map(([n,f])=>`${n} = ${fmt(f.value)} ${f.unit} (${f.source.library} ${f.source.key} v${f.source.version})`).join(",  ")));
+  const compute = el("button","go","Compute");
   compute.addEventListener("click", async () => {
     const ir = structuredClone(body.ir);
-    for (const [name, input] of fields) {
-      const match = input.value.trim().match(/^([-+]?[\d.]+(?:[eE][-+]?\d+)?)\s*(.*)$/);
-      if (!match) { input.focus(); return; }
-      ir.inputs[name] = { value: parseFloat(match[1]), unit: match[2].replace(/\^/g, "**") };
-      ir.missing_inputs = ir.missing_inputs.filter((m) => m !== name);
+    for (const [name,input] of fields) {
+      const m = input.value.trim().match(/^([-+]?[\d.]+(?:[eE][-+]?\d+)?)\s*(.*)$/);
+      if (!m) { input.focus(); return; }
+      ir.inputs[name] = { value: parseFloat(m[1]), unit: m[2].replace(/\^/g,"**") };
+      ir.missing_inputs = ir.missing_inputs.filter(x => x !== name);
     }
     dispatch(await post("/v1/run", { ir }));
   });
@@ -293,90 +353,218 @@ function renderMissing(body) {
   card.appendChild(drilldown("IR so far — what was understood", body.ir));
   render(card);
 }
-
 function renderAmbiguous(body) {
-  const card = el("div", "card state");
+  const card = el("div","card state");
   card.appendChild(el("div", null, `This is ambiguous — I can read it ${body.options.length} ways:`));
-  for (const option of body.options) {
-    const pick = el("button", "ghost option", `${option.pick}) ${option.reading}   (${option.task})`);
-    pick.addEventListener("click", async () => {
-      dispatch(await post("/v1/ask", { question: lastQuestion, pick: option.pick }));
-    });
-    card.appendChild(pick);
+  for (const o of body.options) {
+    const b = el("button","ghost option", `${o.pick}) ${o.reading}   (${o.task})`);
+    b.addEventListener("click", async () => dispatch(await post("/v1/ask", { question: lastQuestion, pick: o.pick })));
+    card.appendChild(b);
   }
   render(card);
 }
-
 function renderOutOfScope(body) {
-  const card = el("div", "card state refuse");
+  const card = el("div","card state refuse");
   card.appendChild(el("div", null, "I can't answer this — it's outside what I cover."));
-  card.appendChild(el("p", "dim mono", body.reason));
-  card.appendChild(el("p", "dim", "Covered domains: " + body.covered.join(", ")));
+  card.appendChild(el("p","dim mono", body.reason));
+  card.appendChild(el("p","dim","Covered: " + body.covered.join(", ")));
   card.appendChild(el("div", null, "I won't guess."));
   render(card);
 }
-
+function renderError(status, data) {
+  const card = el("div","card state refuse");
+  card.appendChild(el("div","err","error: " + (data.error || data.detail || `HTTP ${status}`)));
+  render(card);
+}
+function render(node) { $("out").replaceChildren(node); node.scrollIntoView({behavior:"smooth", block:"nearest"}); }
 function dispatch({ status, data }) {
-  if (status !== 200) {
-    const card = el("div", "card state refuse");
-    card.appendChild(el("div", "err", "error: " + (data.error || data.detail || `HTTP ${status}`)));
-    render(card);
-    return;
-  }
-  if (data.outcome === "answer") renderAnswer(data);
-  else if (data.outcome === "missing_inputs") renderMissing(data);
-  else if (data.outcome === "ambiguous") renderAmbiguous(data);
-  else if (data.outcome === "out_of_scope") renderOutOfScope(data);
+  if (status !== 200) return renderError(status, data);
+  ({ answer: renderAnswer, missing_inputs: renderMissing,
+     ambiguous: renderAmbiguous, out_of_scope: renderOutOfScope }[data.outcome] || (()=>{}))(data);
 }
 
-$("askform").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const question = $("question").value.trim();
-  if (!question) return;
-  lastQuestion = question;
-  render(el("div", "card dim", "computing…"));
-  dispatch(await post("/v1/ask", { question }));
+/* ---------- tabs ---------- */
+$("tabs").addEventListener("click", (e) => {
+  const tab = e.target.dataset.tab; if (!tab) return;
+  for (const b of $("tabs").children) b.classList.toggle("on", b.dataset.tab === tab);
+  for (const p of document.querySelectorAll(".pane")) p.classList.toggle("on", p.id === "pane-" + tab);
 });
 
-for (const example of EXAMPLES) {
-  const chip = el("button", null, example);
-  chip.type = "button";
-  chip.addEventListener("click", () => {
-    $("question").value = example;
-    $("askform").requestSubmit();
-  });
-  $("chips").appendChild(chip);
+/* ---------- ASK ---------- */
+let lastQuestion = "";
+const EXAMPLES = [
+  "solve x^2 - 5x + 6 = 0",
+  "derivative of x^3 - 2x",
+  "period of a simple pendulum 1 m long",
+  "pressure of 2 mol of an ideal gas in a 10 L container at 300 K",
+  "max principal stress for sx = 80 MPa, sy = 20 MPa, txy = 40 MPa",
+  "escape velocity from a planet of mass 6e24 kg and radius 6.4e6 m",
+];
+$("askform").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const q = $("question").value.trim(); if (!q) return;
+  lastQuestion = q;
+  render(el("div","card loading","computing…"));
+  dispatch(await post("/v1/ask", { question: q }));
+});
+for (const ex of EXAMPLES) {
+  const c = el("button", null, ex); c.type = "button";
+  c.addEventListener("click", () => { $("question").value = ex; $("askform").requestSubmit(); });
+  $("chips").appendChild(c);
 }
 
+/* ---------- OPERATIONS ---------- */
+// field kinds: expr | names | nums | point | field | limits | ivp
+const OP_SPEC = {
+  solve: { label:"solve (equation → roots)", fields:[["expression","expr","x**2 - 7*x + 12 = 0"]],
+    example:{expression:"x**2 - 7*x + 12 = 0"} },
+  integrate: { label:"integrate (antiderivative)", fields:[["expression","expr","3*x**2"],["variable","expr","x (optional)"]],
+    example:{expression:"3*x**2"} },
+  differentiate: { label:"differentiate", fields:[["expression","expr","x**4 - 2*x"]],
+    example:{expression:"x**4 - 2*x"} },
+  limit: { label:"limit", fields:[["expression","expr","sin(x)/x"],["point","bound","0  (a number or oo/-oo)"],["direction","expr","+ or - (optional)"]],
+    example:{expression:"sin(x)/x", point:"0"} },
+  solve_inequality: { label:"solve inequality → interval", fields:[["expression","expr","x**2 >= 9"]],
+    example:{expression:"x**2 >= 9"} },
+  partial_derivative: { label:"partial derivative ∂f/∂…", fields:[["expression","expr","x**2 - 3*x*y + 2*y**2"],["wrt","names","x   (repeat for higher: x,x)"],["point","point","x=1, y=2  (optional)"]],
+    example:{expression:"sin(x**2*y - 2*x + 4)", wrt:"x"} },
+  gradient: { label:"gradient ∇f", fields:[["expression","expr","x**2 - x*y + 3*y**2"],["variables","names","x, y"],["point","point","x=-2, y=3  (optional)"]],
+    example:{expression:"x**2 - x*y + 3*y**2", variables:"x, y"} },
+  directional_derivative: { label:"directional derivative D_û f", fields:[["expression","expr","x**2 - x*y + 3*y**2"],["variables","names","x, y"],["direction","nums","3, 4"],["point","point","x=-1, y=2  (optional)"]],
+    example:{expression:"x**2 - x*y + 3*y**2", variables:"x, y", direction:"3, 4", point:"x=-1, y=2"} },
+  integrate_multiple: { label:"iterated / multiple integral", fields:[["expression","expr","3*x**2 - y"],["limits","limits","y=0..3; x=0..2   (inner→outer; bounds may use outer vars, oo)"]],
+    example:{expression:"3*x**2 - y", limits:"y=0..3; x=0..2"} },
+  divergence: { label:"divergence ∇·F", fields:[["field","field","exp(x), y*z, -y*z**2"],["variables","names","x, y, z"],["point","point","x=0, y=2, z=-1  (optional)"]],
+    example:{field:"exp(x), y*z, -y*z**2", variables:"x, y, z"} },
+  curl: { label:"curl ∇×F", fields:[["field","field","x**2*z, exp(y) + x*z, x*y*z"],["variables","names","x, y, z"],["point","point","(optional)"]],
+    example:{field:"x**2*z, exp(y) + x*z, x*y*z", variables:"x, y, z"} },
+  ode_solve: { label:"solve 2nd-order linear ODE", fields:[["equation","expr","y'' + 3*y' - 4*y = 0"],["ivp","ivp","y=0:1; y'=0:-9   (optional: cond=x0:value)"]],
+    example:{equation:"y'' + 3*y' - 4*y = 0", ivp:"y=0:1; y'=0:-9"} },
+};
+let OPERATIONS = {};  // operation -> {task, domain}
+
+function parseField(kind, raw) {
+  raw = raw.trim();
+  if (raw === "") return undefined;
+  const num = (s) => { const n = Number(s); return (s.trim() !== "" && !isNaN(n)) ? n : s.trim(); };
+  switch (kind) {
+    case "expr": return raw;
+    case "bound": return num(raw);   // a number, or "oo"/"-oo" kept as a string
+    case "names": return raw.split(",").map(s=>s.trim()).filter(Boolean);
+    case "nums": return raw.split(",").map(s=>Number(s.trim()));
+    case "field": return raw.split(",").map(s=>s.trim()).filter(Boolean);
+    case "point": {
+      const o = {}; for (const part of raw.split(",")) {
+        const [k,v] = part.split("="); if (k && v!==undefined) o[k.trim()] = num(v);
+      } return o;
+    }
+    case "limits": return raw.split(";").map(g => {
+      const [v, range] = g.split("="); const [lo,hi] = range.split("..");
+      return [v.trim(), num(lo), num(hi)];
+    });
+    case "ivp": {
+      const o = {}; for (const g of raw.split(";")) {
+        const [k, pair] = g.split("="); const [x0,val] = pair.split(":");
+        o[k.trim()] = [num(x0), num(val)];
+      } return o;
+    }
+  }
+}
+function buildOpForm() {
+  const op = $("op-select").value;
+  const spec = OP_SPEC[op];
+  $("op-desc").textContent = (OPERATIONS[op] && OPERATIONS[op].description) || "";
+  const wrap = $("op-fields"); wrap.replaceChildren();
+  for (const [name, kind, hint] of spec.fields) {
+    const row = el("div","op-row");
+    row.appendChild(el("label", null, name));
+    const field = el("div","field");
+    const input = el("input"); input.type="text"; input.dataset.name=name; input.dataset.kind=kind;
+    input.placeholder = hint;
+    field.appendChild(input); field.appendChild(el("span","hint", hint));
+    row.appendChild(field); wrap.appendChild(row);
+  }
+}
+function loadOpExample() {
+  const spec = OP_SPEC[$("op-select").value];
+  for (const input of $("op-fields").querySelectorAll("input"))
+    input.value = spec.example[input.dataset.name] ?? "";
+}
+async function runOp() {
+  const op = $("op-select").value;
+  const meta = OPERATIONS[op];
+  if (!meta) return;
+  const setup = {};
+  for (const input of $("op-fields").querySelectorAll("input")) {
+    const v = parseField(input.dataset.kind, input.value);
+    if (v !== undefined) setup[input.dataset.name] = v;
+  }
+  render(el("div","card loading","computing…"));
+  dispatch(await post("/v1/run", { ir: { domain: meta.domain, task: meta.task, setup } }));
+}
+$("op-select").addEventListener("change", buildOpForm);
+$("op-run").addEventListener("click", runOp);
+$("op-example").addEventListener("click", loadOpExample);
+
+/* ---------- BROWSE ---------- */
+let CATALOG = [];
+function buildCatalog(filter) {
+  filter = (filter || "").toLowerCase();
+  const box = $("catalog"); box.classList.remove("loading"); box.replaceChildren();
+  const subjects = new Map();
+  for (const t of CATALOG) {
+    if (filter && !(t.id.toLowerCase().includes(filter) || (t.description||"").toLowerCase().includes(filter))) continue;
+    const s = t.subject || "other", tp = t.topic || t.domain;
+    if (!subjects.has(s)) subjects.set(s, new Map());
+    const topics = subjects.get(s);
+    if (!topics.has(tp)) topics.set(tp, []);
+    topics.get(tp).push(t);
+  }
+  if (!subjects.size) { box.appendChild(el("p","dim","no templates match.")); return; }
+  const symbolicOps = new Set(Object.keys(OP_SPEC));
+  for (const [subject, topics] of [...subjects].sort()) {
+    const count = [...topics.values()].reduce((a,l)=>a+l.length,0);
+    const det = el("details","subject"); if (filter) det.open = true;
+    const sum = el("summary"); sum.append(subject); sum.appendChild(el("span","count",`${count}`));
+    det.appendChild(sum);
+    for (const [topic, tpls] of [...topics].sort()) {
+      const tb = el("div","topic");
+      tb.appendChild(el("div","topic-name", topic));
+      for (const t of tpls.sort((a,b)=>a.id.localeCompare(b.id))) {
+        const row = el("div","tpl");
+        row.appendChild(el("span","dot " + t.status, "●"));
+        row.appendChild(el("span","id", t.id));
+        row.appendChild(el("span","desc", t.description || ""));
+        tb.appendChild(row);
+      }
+      det.appendChild(tb);
+    }
+    box.appendChild(det);
+  }
+}
+$("browse-search").addEventListener("input", (e) => buildCatalog(e.target.value));
+
+/* ---------- boot ---------- */
 (async () => {
   try {
-    const response = await fetch("/v1/domains");
-    const entries = await response.json();
-    // subject -> topic -> count + domains (the taxonomy, rendered compactly)
-    const tree = new Map();
-    for (const entry of entries) {
-      const subject = entry.subject || "other";
-      const topic = entry.topic || entry.domain;
-      if (!tree.has(subject)) tree.set(subject, new Map());
-      const topics = tree.get(subject);
-      if (!topics.has(topic)) topics.set(topic, { count: 0, domains: new Set() });
-      const node = topics.get(topic);
-      node.count += 1;
-      node.domains.add(entry.domain);
+    const [domains, ops] = await Promise.all([
+      fetch("/v1/domains").then(r=>r.json()),
+      fetch("/v1/operations").then(r=>r.json()),
+    ]);
+    CATALOG = domains;
+    const subjects = new Set(domains.map(t=>t.subject).filter(Boolean));
+    $("stat").innerHTML = `<b>${domains.length}</b> verified templates · <b>${subjects.size}</b> subjects · every answer checked before it's shown`;
+    buildCatalog("");
+
+    for (const o of ops) OPERATIONS[o.operation] = o;
+    const sel = $("op-select");
+    // present operations in OP_SPEC order, only those actually installed
+    for (const key of Object.keys(OP_SPEC)) if (OPERATIONS[key]) {
+      const opt = el("option", null, OP_SPEC[key].label); opt.value = key; sel.appendChild(opt);
     }
-    const box = $("domains");
-    box.replaceChildren();
-    for (const [subject, topics] of [...tree.entries()].sort()) {
-      const row = el("div", "domain");
-      row.appendChild(el("b", null, subject));
-      const parts = [...topics.entries()]
-        .sort()
-        .map(([topic, node]) => `${topic} (${node.count})`);
-      row.appendChild(document.createTextNode("  " + parts.join(" · ")));
-      box.appendChild(row);
-    }
-  } catch {
-    $("domains").textContent = "unavailable";
+    buildOpForm();
+  } catch (err) {
+    $("catalog").textContent = "catalog unavailable"; $("stat").textContent = "";
   }
 })();
 </script>
