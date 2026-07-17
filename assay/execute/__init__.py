@@ -68,6 +68,7 @@ __all__ = [
     "execute_template",
     "ir_input_pairs",
     "normalize_expression",
+    "parametric_problem",
     "parse_bound",
     "parse_formula",
     "parse_problem",
@@ -400,12 +401,93 @@ def _execute_inequality(template: Template, setup: Mapping[str, Any]) -> Executi
     )
 
 
+def parametric_problem(setup: Mapping[str, Any]) -> tuple[Any, Any, Any]:
+    """Parse a parametric-slope problem (chisel round 8): ``x_expression`` and
+    ``y_expression`` in one parameter, through the ordinary safe gate. Returns
+    ``(x_expr, y_expr, parameter_symbol)``."""
+    names: set[str] = set()
+    texts: dict[str, str] = {}
+    for key in ("x_expression", "y_expression"):
+        raw = setup.get(key)
+        if not isinstance(raw, str) or not raw.strip():
+            raise InputError(f"this operation needs setup {key!r} (a non-empty string)")
+        texts[key] = raw
+        try:
+            names |= expr_symbols(raw)
+        except ValueError as exc:
+            raise UnsafeExpressionError(f"{key} rejected: {exc}") from exc
+    variable = setup.get("variable")
+    if variable is None:
+        if len(names) != 1:
+            raise InputError(
+                "cannot infer the parameter"
+                f" (free symbols: {', '.join(sorted(names)) or 'none'});"
+                " specify setup 'variable'"
+            )
+        variable = next(iter(names))
+    if not isinstance(variable, str) or not variable.isidentifier():
+        raise InputError("setup 'variable' must be a simple name")
+    if extra := sorted(names - {variable}):
+        raise InputError(
+            f"only the parameter {variable!r} may appear; unexpected symbols:"
+            f" {', '.join(extra)}"
+        )
+    x_expr = parse_formula(texts["x_expression"], {variable})
+    y_expr = parse_formula(texts["y_expression"], {variable})
+    return x_expr, y_expr, sympy.Symbol(variable)
+
+
+def _execute_parametric_slope(
+    template: Template, setup: Mapping[str, Any]
+) -> ExecutionResult:
+    """dy/dx = (dy/dt)/(dx/dt) — symbolic when no ``point`` is given, numeric at the
+    point otherwise; a vertical tangent (dx/dt = 0) refuses by name (A-12)."""
+    x_expr, y_expr, symbol = parametric_problem(setup)
+    dx = sympy.diff(x_expr, symbol)
+    dy = sympy.diff(y_expr, symbol)
+    if dx == 0:
+        raise ExecutionError(
+            "dx/dt is identically zero — the curve is a vertical line; the slope"
+            " is undefined (A-12)"
+        )
+    slope = sympy.simplify(dy / dx)
+    point = setup.get("point")
+    if point is None:
+        return ExecutionResult(
+            output=template.output.name,
+            values=[ExecutedValue(label=template.output.name, value=sympy.sstr(slope))],
+        )
+    if not isinstance(point, int | float) or isinstance(point, bool):
+        raise InputError("setup 'point' must be a number")
+    at = sympy.Float(point)
+    dx_at = dx.subs(symbol, at)
+    try:
+        dx_value = float(dx_at)
+    except (TypeError, ValueError) as exc:
+        raise ExecutionError(f"cannot evaluate dx/dt at {point:g}: {exc}") from exc
+    if abs(dx_value) < 1e-14:
+        raise ExecutionError(
+            f"vertical tangent at {symbol} = {point:g} (dx/dt = 0) — the slope is"
+            " undefined there; refusing to divide by zero (A-12)"
+        )
+    try:
+        value = float(slope.subs(symbol, at))
+    except (TypeError, ValueError) as exc:
+        raise ExecutionError(f"cannot evaluate the slope at {point:g}: {exc}") from exc
+    return ExecutionResult(
+        output=template.output.name,
+        values=[ExecutedValue(label=template.output.name, value=value)],
+    )
+
+
 def _execute_symbolic(template: Template, setup: Mapping[str, Any]) -> ExecutionResult:
     """Run a curated symbolic operation (E1.5). Deterministic: solutions are sorted
     (numeric ascending, then symbolic lexicographic); printing uses SymPy's ``sstr``."""
     assert isinstance(template.method, SymbolicMethod)  # execute_template dispatches
     if template.method.operation == "solve_inequality":  # relational grammar (E2.13)
         return _execute_inequality(template, setup)
+    if template.method.operation == "parametric_slope":  # chisel round 8
+        return _execute_parametric_slope(template, setup)
     expression, symbol = symbolic_problem(template, setup)
     if template.method.operation == "limit":  # E2.13
         if "point" not in setup:

@@ -403,7 +403,12 @@ class SymbolicMethod(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     kind: Literal["symbolic"]
-    operation: Literal["solve", "integrate", "differentiate", "limit", "solve_inequality"]
+    operation: Literal[
+        "solve", "integrate", "differentiate", "limit", "solve_inequality",
+        # chisel round 8, finding 3: dy/dx = (dy/dt)/(dx/dt) for parametric curves
+        # (polar tangents encode as x = r(θ)·cos(θ), y = r(θ)·sin(θ) — same op)
+        "parametric_slope",
+    ]
 
 
 class CasesMethod(BaseModel):
@@ -800,6 +805,40 @@ class Template(BaseModel):
                 problems.append(
                     f"fixtures[{index}]: solve_for applies to formula templates only"
                 )
+            if operation == "parametric_slope":  # two expressions, no 'expression'
+                for key in ("x_expression", "y_expression"):
+                    value = fixture.setup.get(key)
+                    if not isinstance(value, str) or not value.strip():
+                        problems.append(
+                            f"fixtures[{index}].setup needs {key!r} (a non-empty string)"
+                        )
+                        continue
+                    try:
+                        expr_symbols(value)
+                    except ValueError as exc:
+                        problems.append(f"fixtures[{index}].setup {key}: {exc}")
+                point = fixture.setup.get("point")
+                if point is not None and not (
+                    isinstance(point, int | float) and not isinstance(point, bool)
+                ):
+                    problems.append(
+                        f"fixtures[{index}].setup 'point' must be a number"
+                        " (omit it for the symbolic slope)"
+                    )
+                variable = fixture.setup.get("variable")
+                if variable is not None and (
+                    not isinstance(variable, str) or not variable.isidentifier()
+                ):
+                    problems.append(
+                        f"fixtures[{index}].setup 'variable' must be a simple name"
+                    )
+                for value in fixture.expect.values():
+                    if isinstance(value, tuple):
+                        problems.append(
+                            f"fixtures[{index}].expect: a [value, unit] pair is for"
+                            " formula templates"
+                        )
+                continue
             expression = fixture.setup.get("expression")
             if not isinstance(expression, str) or not expression.strip():
                 problems.append(

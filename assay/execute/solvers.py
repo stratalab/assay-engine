@@ -19,6 +19,7 @@ never pay the import.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Mapping
 from typing import Any
 
@@ -30,6 +31,7 @@ from assay.execute import (
     ExecutionError,
     ExecutionResult,
     InputError,
+    parse_bound,
     parse_formula,
     parse_problem,
 )
@@ -112,39 +114,88 @@ def _check_root(
 # --- integrate.quad -------------------------------------------------------------
 
 
+def _integration_limits(setup: Mapping[str, Any]) -> tuple[float, float]:
+    """The integration limits, IMPROPER bounds included (chisel round 8, finding 1):
+    each may be a number or ``"oo"``/``"-oo"`` — SciPy's quad handles infinite ranges
+    natively, and the cross-check transforms them (see ``_check_integral``)."""
+    raw = setup.get("limits")
+    if not isinstance(raw, list | tuple) or len(raw) != 2:
+        raise InputError("setup 'limits' must be the integration limits [lo, hi]")
+    try:
+        bounds = [parse_bound(value) for value in raw]
+    except InputError as exc:
+        raise InputError(f"setup 'limits': {exc}") from None
+    low = -math.inf if bounds[0] == -sympy.oo else float(bounds[0])
+    high = math.inf if bounds[1] == sympy.oo else float(bounds[1])
+    if not high > low:
+        raise InputError(f"setup 'limits' is empty: [{raw[0]}, {raw[1]}]")
+    return low, high
+
+
 def _integrate(setup: Mapping[str, Any]) -> ExecutionResult:
     parsed, symbol = _scalar_problem(setup, allow_equation=False)
-    low, high = _setup_pair(setup, "limits", "the integration limits")
+    low, high = _integration_limits(setup)
     from scipy.integrate import quad
 
-    value, _estimate = quad(_as_function(parsed, symbol), low, high, epsabs=1e-12, epsrel=1e-12)
+    value, _estimate = quad(
+        _as_function(parsed, symbol), low, high, epsabs=1e-12, epsrel=1e-12, limit=200
+    )
     return ExecutionResult(
         output="integral", values=[ExecutedValue(label="integral", value=float(value))]
     )
+
+
+def _fixed_grid_simpson(function: Callable[[float], float], low: float, high: float) -> float:
+    samples = 2001  # odd: Simpson needs an even interval count; fixed: deterministic
+    step = (high - low) / (samples - 1)
+    total = function(low) + function(high)
+    for index in range(1, samples - 1):
+        total += function(low + index * step) * (4 if index % 2 else 2)
+    return total * step / 3
 
 
 def _check_integral(
     template: Template, result: ExecutionResult, setup: Mapping[str, Any]
 ) -> VerificationCheck:
     """Cross-method: composite Simpson on a fixed grid must agree with the adaptive
-    quadrature — two genuinely different rules."""
+    quadrature — two genuinely different rules. Improper ranges are transformed to a
+    finite interval first (x = a + t/(1-t) for [a, oo); x = t/(1-t**2) for the doubly
+    infinite case), so the same fixed-grid rule applies; the interval is clipped a
+    hair short of the singular endpoint, so the check carries a slightly looser
+    tolerance there — a slowly-decaying tail that genuinely exceeds it withholds,
+    honestly (A-6)."""
     parsed, symbol = _scalar_problem(setup, allow_equation=False)
-    low, high = _setup_pair(setup, "limits", "the integration limits")
+    low, high = _integration_limits(setup)
     function = _as_function(parsed, symbol)
-    samples = 2001  # odd: Simpson needs an even interval count; fixed: deterministic
-    step = (high - low) / (samples - 1)
-    total = function(low) + function(high)
-    for index in range(1, samples - 1):
-        total += function(low + index * step) * (4 if index % 2 else 2)
-    simpson = total * step / 3
+    improper = math.isinf(low) or math.isinf(high)
+    if not improper:
+        simpson = _fixed_grid_simpson(function, low, high)
+        tolerance = max(1e-6 * abs(simpson), 1e-9)
+    else:
+        clip = 1e-6  # t in [clip, 1-clip]: the tail beyond ~1/clip is the tolerance
+        if math.isinf(low) and math.isinf(high):
+            def transformed(t: float) -> float:
+                x = t / (1 - t * t)
+                return function(x) * (1 + t * t) / (1 - t * t) ** 2
+            simpson = _fixed_grid_simpson(transformed, -1 + clip, 1 - clip)
+        elif math.isinf(high):
+            def transformed(t: float) -> float:
+                return function(low + t / (1 - t)) / (1 - t) ** 2
+            simpson = _fixed_grid_simpson(transformed, 0.0, 1 - clip)
+        else:  # (-oo, b]
+            def transformed(t: float) -> float:
+                return function(high - t / (1 - t)) / (1 - t) ** 2
+            simpson = _fixed_grid_simpson(transformed, 0.0, 1 - clip)
+        tolerance = max(1e-5 * abs(simpson), 1e-7)
     value = result.values[0].value
     assert isinstance(value, float)
-    ok = abs(value - simpson) <= max(1e-6 * abs(simpson), 1e-9)
+    ok = abs(value - simpson) <= tolerance
     return VerificationCheck(
         name="cross-method:simpson",
         ok=ok,
         detail=(
             f"adaptive quadrature {value:.10g} vs Simpson {simpson:.10g}"
+            + (" (transformed to a finite interval)" if improper else "")
             + ("" if ok else " — disagreement; withholding")
         ),
     )

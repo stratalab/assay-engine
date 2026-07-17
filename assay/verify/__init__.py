@@ -43,6 +43,7 @@ from assay.execute import (
     ExecutionResult,
     execute_template,
     ir_input_pairs,
+    parametric_problem,
     parse_bound,
     parse_formula,
     symbolic_problem,
@@ -531,13 +532,92 @@ def _check_interval_testpoints(
     )
 
 
+def _check_parametric_difference(
+    template: Template, result: ExecutionResult, setup: Mapping[str, Any]
+) -> VerificationCheck:
+    """The parametric slope's independent check (chisel round 8): the central
+    difference (Δy/Δx along the curve) must agree — numerically at the given point,
+    or at sample parameter values for a symbolic slope."""
+    name = "parametric-difference"
+    x_expr, y_expr, symbol = parametric_problem(setup)
+    step = 1e-6
+    reported = result.value
+
+    def chord(at: float) -> float | None:
+        try:
+            dx = float(x_expr.subs(symbol, sympy.Float(at + step))) - float(
+                x_expr.subs(symbol, sympy.Float(at - step))
+            )
+            dy = float(y_expr.subs(symbol, sympy.Float(at + step))) - float(
+                y_expr.subs(symbol, sympy.Float(at - step))
+            )
+        except (TypeError, ValueError):
+            return None
+        if abs(dx) < 1e-15:
+            return None
+        return dy / dx
+
+    if isinstance(reported, float):
+        point = setup.get("point")
+        assert isinstance(point, int | float)  # the executor required it
+        numeric = chord(float(point))
+        if numeric is None:
+            return VerificationCheck(
+                name=name, ok=False,
+                detail=f"no usable central difference at {symbol} = {point:g}",
+            )
+        ok = abs(numeric - reported) <= 1e-4 * max(1.0, abs(reported))
+        return VerificationCheck(
+            name=name,
+            ok=ok,
+            detail=(
+                f"central difference {numeric:.6g} vs slope {reported:.6g}"
+                + ("" if ok else " — disagreement; withholding the answer")
+            ),
+        )
+    try:
+        slope_expr = parse_formula(str(reported), {str(symbol)})
+    except Exception as exc:
+        return VerificationCheck(
+            name=name, ok=False, detail=f"could not parse the computed slope: {exc}"
+        )
+    compared = 0
+    for at in (0.7, 1.3, -0.6):
+        numeric = chord(at)
+        try:
+            exact = float(slope_expr.subs(symbol, sympy.Float(at)))
+        except (TypeError, ValueError):
+            continue
+        if numeric is None:
+            continue
+        if abs(numeric - exact) > 1e-4 * max(1.0, abs(exact)):
+            return VerificationCheck(
+                name=name,
+                ok=False,
+                detail=(
+                    f"at {symbol} = {at:g}: central difference {numeric:.6g}"
+                    f" disagrees with the slope {exact:.6g} — withholding the answer"
+                ),
+            )
+        compared += 1
+    if compared == 0:
+        return VerificationCheck(
+            name=name, ok=False, detail="no usable sample point to check the slope at"
+        )
+    return VerificationCheck(
+        name=name,
+        ok=True,
+        detail=f"central difference matches the slope at {compared} sample points",
+    )
+
+
 def _verify_symbolic(
     template: Template, setup: Mapping[str, Any]
 ) -> VerifiedExecution:
     """Symbolic operations carry built-in checks (E1.5/E2.5/E2.13) in place of the
     declarative hooks: solve → substitution, differentiate → difference quotient,
     integrate → derivative (or quadrature when definite), limit → approach sequence,
-    solve_inequality → test points."""
+    solve_inequality → test points, parametric_slope → central difference."""
     result = execute_template(template, {}, setup=setup)
     assert isinstance(template.method, SymbolicMethod)  # dispatcher guards
     if template.method.operation == "solve":
@@ -548,6 +628,8 @@ def _verify_symbolic(
         check = _check_limit_approach(template, result, setup)
     elif template.method.operation == "solve_inequality":
         check = _check_interval_testpoints(template, result, setup)
+    elif template.method.operation == "parametric_slope":
+        check = _check_parametric_difference(template, result, setup)
     elif setup.get("limits") is not None:  # definite/improper integration (E2.13)
         check = _check_quadrature(template, result, setup)
     else:
