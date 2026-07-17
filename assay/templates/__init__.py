@@ -142,6 +142,89 @@ def split_inequality(expression: str) -> tuple[str, str, str]:
     return lhs.strip(), found[0], rhs.strip()
 
 
+# The multivariable operation family (E2.17, chisel round 9). `divergence`, `curl`,
+# and `ode_solve` carry no `expression` (field / equation instead); `gradient` and
+# `curl` are vector-valued.
+_MULTIVARIABLE_OPS = frozenset({
+    "partial_derivative", "gradient", "directional_derivative",
+    "integrate_multiple", "divergence", "curl", "ode_solve",
+})
+_VECTOR_OPS = frozenset({"gradient", "curl"})
+
+
+def _gate_expression(text: Any, where: str) -> list[str]:
+    if not isinstance(text, str) or not text.strip():
+        return [f"{where}: needs a non-empty expression string"]
+    try:
+        expr_symbols(text)
+    except ValueError as exc:
+        return [f"{where}: {exc}"]
+    return []
+
+
+def _multivariable_fixture_problems(operation: str, index: int, fixture: Fixture) -> list[str]:
+    """Static setup/expect checks for the E2.17 multivariable ops — the executor does
+    the deep validation, this catches shape errors before the fixture runs."""
+    problems: list[str] = []
+    setup = fixture.setup
+    where = f"fixtures[{index}]"
+
+    def _names(key: str) -> list[str] | None:
+        value = setup.get(key)
+        if (
+            not isinstance(value, list)
+            or not value
+            or not all(isinstance(v, str) and v.isidentifier() for v in value)
+        ):
+            problems.append(f"{where}.setup {key!r} must be a list of variable names")
+            return None
+        return value
+
+    if operation in ("partial_derivative", "gradient", "directional_derivative",
+                     "integrate_multiple"):
+        problems += _gate_expression(setup.get("expression"), f"{where}.setup expression")
+    if operation == "partial_derivative":
+        _names("wrt")
+    elif operation in ("gradient", "directional_derivative"):
+        _names("variables")
+        if operation == "directional_derivative":
+            direction = setup.get("direction")
+            if not isinstance(direction, list) or not all(
+                isinstance(d, int | float) and not isinstance(d, bool) for d in direction
+            ):
+                problems.append(f"{where}.setup 'direction' must be a list of numbers")
+    elif operation == "integrate_multiple":
+        limits = setup.get("limits")
+        if not isinstance(limits, list) or not limits or not all(
+            isinstance(e, list) and len(e) == 3 and isinstance(e[0], str) for e in limits
+        ):
+            problems.append(f"{where}.setup 'limits' must be a list of [var, lo, hi]")
+    elif operation in ("divergence", "curl"):
+        variables = _names("variables")
+        field = setup.get("field")
+        if not isinstance(field, list) or not all(isinstance(c, str) for c in field):
+            problems.append(f"{where}.setup 'field' must be a list of component strings")
+        elif variables is not None and len(field) != len(variables):
+            problems.append(f"{where}.setup 'field' and 'variables' must have equal length")
+        elif isinstance(field, list):
+            for axis, component in enumerate(field):
+                problems += _gate_expression(component, f"{where}.setup field[{axis}]")
+    elif operation == "ode_solve":
+        equation = setup.get("equation")
+        if not isinstance(equation, str) or "'" not in equation:
+            problems.append(f"{where}.setup 'equation' must be an ODE in y', y'' notation")
+
+    if operation not in ("ode_solve",):
+        for value in fixture.expect.values():
+            if isinstance(value, tuple):
+                problems.append(
+                    f"{where}.expect: a [value, unit] pair is for formula templates"
+                )
+            elif operation in _VECTOR_OPS and not isinstance(value, list):
+                problems.append(f"{where}.expect: {operation} is vector-valued (a list)")
+    return problems
+
+
 def _check_inequality_expression(expression: str, where: str) -> list[str]:
     try:
         lhs, _op, rhs = split_inequality(expression)
@@ -434,6 +517,12 @@ class SymbolicMethod(BaseModel):
         # use factorial(...) of the summation index — a SCOPED grammar extension,
         # symbolic-only, see sandboxing.md)
         "taylor_polynomial", "series_convergence",
+        # E2.17 (round 9, Calculus Vol 3): the multivariable operation family, all on
+        # a multivariable-aware parse — partial derivatives, gradient, directional
+        # derivative, iterated integrals, divergence/curl of a vector field, and the
+        # standalone symbolic second-order ODE solve.
+        "partial_derivative", "gradient", "directional_derivative",
+        "integrate_multiple", "divergence", "curl", "ode_solve",
     ]
 
 
@@ -457,8 +546,10 @@ Method = Annotated[
 ]
 
 # A fixture's expectation: a numeric quantity ``[value, unit]`` (formula templates), a
-# real root set ``[2, 3]`` (symbolic solve), or an expression string (symbolic results).
-ExpectedValue = tuple[float, str] | list[float] | str
+# real root set ``[2, 3]`` (symbolic solve) or a numeric vector (E2.17 gradient/curl at
+# a point), a symbolic vector ``["2*x", "-y"]`` (E2.17 gradient/curl), or an expression
+# string (symbolic results).
+ExpectedValue = tuple[float, str] | list[float] | list[str] | str
 
 
 class Bounds(BaseModel):
@@ -836,6 +927,9 @@ class Template(BaseModel):
                 problems.append(
                     f"fixtures[{index}]: solve_for applies to formula templates only"
                 )
+            if operation in _MULTIVARIABLE_OPS:  # E2.17 (round 9, Calc Vol 3)
+                problems += _multivariable_fixture_problems(operation, index, fixture)
+                continue
             if operation == "series_convergence":  # a term, no 'expression' (E2.16)
                 term = fixture.setup.get("term")
                 if not isinstance(term, str) or not term.strip():

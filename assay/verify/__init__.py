@@ -28,6 +28,7 @@ not verdicts about a computed value.
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Callable, Mapping
 from functools import lru_cache
 from typing import Any
@@ -43,9 +44,11 @@ from assay.execute import (
     ExecutionResult,
     execute_template,
     ir_input_pairs,
+    multivariable_expression,
     parametric_problem,
     parse_bound,
     parse_formula,
+    parse_ode,
     symbolic_problem,
 )
 from assay.ir import IR
@@ -756,30 +759,405 @@ def _check_term_behavior(
     )
 
 
+# --- the multivariable operation family's independent checks (E2.17) -------------
+#
+# Each is a numeric finite difference or cubature — a genuinely different method than
+# the symbolic diff/integrate, at deterministic sample points chosen to avoid the
+# common singularities of the exhibit functions.
+
+_SAMPLE_BASES = ((0.31, 0.47, 0.23), (-0.4, 0.6, -0.25), (0.55, -0.35, 0.5))
+
+
+def _evalf(expression: Any, point: Mapping[str, float]) -> float | None:
+    try:
+        return float(expression.subs({sympy.Symbol(k): sympy.Float(v) for k, v in point.items()}))
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+
+
+def _numeric_partial(
+    expression: Any, base: dict[str, float], wrt: list[str], h: float
+) -> float | None:
+    """A central difference along the ``wrt`` chain — order-1 for one name, a repeated
+    name gives the second difference, distinct names the mixed one; built only from
+    evaluations of ``expression``."""
+    if not wrt:
+        return _evalf(expression, base)
+    variable, rest = wrt[0], wrt[1:]
+    up, down = dict(base), dict(base)
+    up[variable] += h
+    down[variable] -= h
+    high = _numeric_partial(expression, up, rest, h)
+    low = _numeric_partial(expression, down, rest, h)
+    if high is None or low is None:
+        return None
+    return (high - low) / (2 * h)
+
+
+def _fd_settings(order: int) -> tuple[float, float]:
+    """(step, relative-tolerance) growing looser with the differentiation order."""
+    return {1: (1e-5, 1e-4), 2: (1e-3, 5e-3), 3: (1e-2, 2e-2)}.get(order, (1e-2, 5e-2))
+
+
+def _check_scalar_partial(
+    expression: Any, variables: list[str], wrt: list[str],
+    result_value: float | str, setup: Mapping[str, Any], name: str,
+) -> VerificationCheck:
+    """Shared scalar check for partial_derivative / directional_derivative: the
+    reported value agrees with the finite difference — at the point (numeric) or at
+    sample bases (symbolic)."""
+    step, tol = _fd_settings(len(wrt))
+
+    def compare(base: dict[str, float], expected: float) -> tuple[bool, float] | None:
+        numeric = _numeric_partial(expression, base, wrt, step)
+        if numeric is None:
+            return None
+        return abs(numeric - expected) <= tol * max(1.0, abs(expected)), numeric
+
+    if isinstance(result_value, float):
+        point = setup.get("point", {})
+        base = {v: 0.0 for v in variables}
+        base.update({k: _point_coordinate(v) for k, v in point.items()})
+        outcome = compare(base, result_value)
+        if outcome is None:
+            return VerificationCheck(name=name, ok=False, detail="no usable point to check at")
+        ok, numeric = outcome
+        return VerificationCheck(
+            name=name, ok=ok,
+            detail=f"finite difference {numeric:.6g} vs reported {result_value:.6g}"
+            + ("" if ok else " — disagreement; withholding the answer"),
+        )
+    try:
+        reported = parse_formula(result_value, set(variables))
+    except Exception as exc:
+        return VerificationCheck(name=name, ok=False, detail=f"could not parse the result: {exc}")
+    checked = 0
+    for coords in _SAMPLE_BASES:
+        base = {v: coords[i % len(coords)] for i, v in enumerate(variables)}
+        exact = _evalf(reported, base)
+        outcome = compare(base, exact) if exact is not None else None
+        if outcome is None:
+            continue
+        ok, numeric = outcome
+        if not ok:
+            return VerificationCheck(
+                name=name, ok=False,
+                detail=f"at {base}: finite difference {numeric:.6g} vs {exact:.6g}"
+                " — withholding the answer",
+            )
+        checked += 1
+    if checked == 0:
+        return VerificationCheck(name=name, ok=False, detail="no usable sample point")
+    return VerificationCheck(
+        name=name, ok=True, detail=f"finite difference matches at {checked} sample points"
+    )
+
+
+def _point_coordinate(raw: Any) -> float:
+    from assay.execute import _point_coordinate as coord  # reuse the executor's parse
+
+    value: float = coord(raw)
+    return value
+
+
+def _check_partial_fd(
+    template: Template, result: ExecutionResult, setup: Mapping[str, Any]
+) -> VerificationCheck:
+    expression, symbols = multivariable_expression(setup.get("expression"))
+    return _check_scalar_partial(
+        expression, list(symbols), list(setup["wrt"]), result.value, setup,
+        "partial-difference",
+    )
+
+
+def _check_directional_fd(
+    template: Template, result: ExecutionResult, setup: Mapping[str, Any]
+) -> VerificationCheck:
+    """D_û f verified along the unit direction: (f(P+hû) − f(P−hû)) / 2h."""
+    name = "directional-difference"
+    variables = list(setup["variables"])
+    expression, _symbols = multivariable_expression(setup.get("expression"), set(variables))
+    direction = [float(d) for d in setup["direction"]]
+    norm = math.sqrt(sum(d * d for d in direction))
+    if norm == 0:
+        return VerificationCheck(name=name, ok=False, detail="zero direction")
+    unit = [d / norm for d in direction]
+    step = 1e-6
+
+    def along(base: dict[str, float]) -> float | None:
+        up = {v: base[v] + step * unit[i] for i, v in enumerate(variables)}
+        down = {v: base[v] - step * unit[i] for i, v in enumerate(variables)}
+        hi, lo = _evalf(expression, up), _evalf(expression, down)
+        return None if hi is None or lo is None else (hi - lo) / (2 * step)
+
+    reported = result.value
+    if isinstance(reported, float):
+        point = setup.get("point", {})
+        base = {v: 0.0 for v in variables}
+        base.update({k: _point_coordinate(v) for k, v in point.items()})
+        numeric = along(base)
+        ok = numeric is not None and abs(numeric - reported) <= 1e-4 * max(1.0, abs(reported))
+        return VerificationCheck(
+            name=name, ok=ok,
+            detail=f"directional difference {numeric!r} vs {reported:.6g}"
+            + ("" if ok else " — withholding"),
+        )
+    try:
+        reported_expr = parse_formula(reported, set(variables))
+    except Exception as exc:
+        return VerificationCheck(name=name, ok=False, detail=f"could not parse: {exc}")
+    checked = 0
+    for coords in _SAMPLE_BASES:
+        base = {v: coords[i % len(coords)] for i, v in enumerate(variables)}
+        numeric, exact = along(base), _evalf(reported_expr, base)
+        if numeric is None or exact is None:
+            continue
+        if abs(numeric - exact) > 1e-4 * max(1.0, abs(exact)):
+            return VerificationCheck(
+                name=name, ok=False,
+                detail=f"at {base}: {numeric:.6g} vs {exact:.6g} — withholding",
+            )
+        checked += 1
+    if checked == 0:
+        return VerificationCheck(name=name, ok=False, detail="no usable sample point")
+    return VerificationCheck(name=name, ok=True, detail=f"agrees at {checked} sample points")
+
+
+def _check_vector_fd(
+    template: Template, result: ExecutionResult, setup: Mapping[str, Any]
+) -> VerificationCheck:
+    """gradient / divergence / curl: each reported component against its own finite
+    difference — the div is Σ ∂Fᵢ/∂xᵢ, the curl the fixed antisymmetric combination,
+    the gradient the per-variable partials, all rebuilt numerically."""
+    operation = template.method.operation  # type: ignore[union-attr]
+    name = f"{operation}-difference"
+    variables = list(setup["variables"]) if operation != "partial_derivative" else []
+    step = 1e-5
+
+    def partial(expr: Any, base: dict[str, float], var: str) -> float | None:
+        return _numeric_partial(expr, base, [var], step)
+
+    Target = Callable[[dict[str, float]], float | None]
+
+    def grad_target(ex: Any, vv: str) -> Target:
+        return lambda base: partial(ex, base, vv)
+
+    # build the numeric target per operation as a function of a base point
+    targets: list[tuple[str, Target]]
+    if operation == "gradient":
+        expression, _s = multivariable_expression(setup.get("expression"), set(variables))
+        targets = [(v, grad_target(expression, v)) for v in variables]
+    else:  # divergence / curl over a field
+        field = [
+            multivariable_expression(component, set(variables))[0] for component in setup["field"]
+        ]
+        if operation == "divergence":
+            def _div(b: dict[str, float]) -> float | None:
+                total = 0.0
+                for i, v in enumerate(variables):
+                    part = partial(field[i], b, v)
+                    if part is None:
+                        return None
+                    total += part
+                return total
+            targets = [(template.output.name, _div)]
+        else:  # curl (always a 3-vector; 2-D pads to [0, 0, k])
+            v3 = variables + ["_z"] if len(variables) == 2 else variables
+            f3 = field + [sympy.Integer(0)] if len(field) == 2 else field
+            x, y, z = v3
+
+            def _curl(b: dict[str, float], comp: int) -> float | None:
+                bb = dict(b)
+                bb.setdefault("_z", 0.0)
+                pairs = [(f3[2], y, f3[1], z), (f3[0], z, f3[2], x), (f3[1], x, f3[0], y)]
+                a1, v1, a2, v2 = pairs[comp]
+                p1, p2 = partial(a1, bb, v1), partial(a2, bb, v2)
+                return None if p1 is None or p2 is None else p1 - p2
+
+            def curl_target(comp: int) -> Target:
+                return lambda base: _curl(base, comp)
+
+            targets = [(f"curl_{axis}", curl_target(i)) for i, axis in enumerate("xyz")]
+
+    reported = [value.value for value in result.values]
+    point = setup.get("point")
+    if point is not None:
+        base = {v: 0.0 for v in variables}
+        base.update({k: _point_coordinate(v) for k, v in point.items()})
+        bases = [base]
+    else:
+        bases = [{v: coords[i % len(coords)] for i, v in enumerate(variables)}
+                 for coords in _SAMPLE_BASES]
+    reported_exprs: list[Any] = []
+    for value in reported:
+        if isinstance(value, str):
+            try:
+                reported_exprs.append(parse_formula(value, set(variables) | {"_z"}))
+            except Exception as exc:
+                return VerificationCheck(
+                    name=name, ok=False, detail=f"could not parse {value!r}: {exc}"
+                )
+        else:
+            reported_exprs.append(value)
+    checked = 0
+    for base in bases:
+        for comp, (_label, target) in enumerate(targets):
+            numeric = target(base)
+            expected = reported_exprs[comp]
+            exact = expected if isinstance(expected, float) else _evalf(expected, base)
+            if numeric is None or exact is None:
+                continue
+            if abs(numeric - exact) > 1e-4 * max(1.0, abs(exact)):
+                return VerificationCheck(
+                    name=name, ok=False,
+                    detail=f"component {comp} at {base}: fd {numeric:.6g} vs {exact:.6g}"
+                    " — withholding the answer",
+                )
+            checked += 1
+    if checked == 0:
+        return VerificationCheck(name=name, ok=False, detail="no usable sample point")
+    return VerificationCheck(
+        name=name, ok=True,
+        detail=f"every component matches its finite difference ({checked} checks)",
+    )
+
+
+def _check_multiple_cubature(
+    template: Template, result: ExecutionResult, setup: Mapping[str, Any]
+) -> VerificationCheck:
+    """An iterated integral checked by numeric cubature over the same region (scipy
+    nquad) — a genuinely different method than the symbolic nesting."""
+    name = "cross-method:cubature"
+    from assay.execute import _multiple_limits
+    from assay.execute import multivariable_expression as parse_mv
+
+    limits = _multiple_limits(setup)
+    order = [var for var, _lo, _hi in limits]  # inner → outer, matches nquad's arg order
+    expression, _s = parse_mv(setup.get("expression"), set(order))
+    reported = result.value
+    stated = reported if isinstance(reported, float) else _reported_number(str(reported))
+    if stated is None:
+        return VerificationCheck(
+            name=name, ok=False, detail=f"cannot check {reported!r} numerically"
+        )
+
+    def integrand(*vals: float) -> float:
+        point = {order[i]: vals[i] for i in range(len(order))}
+        out = _evalf(expression, point)
+        return 0.0 if out is None else out
+
+    def bound_value(raw: Any, outer: dict[str, float]) -> float:
+        if raw == sympy.oo:
+            return math.inf
+        if raw == -sympy.oo:
+            return -math.inf
+        return float(raw.subs({sympy.Symbol(k): sympy.Float(v) for k, v in outer.items()}))
+
+    ranges = []
+    for depth, (_var, lo, hi) in enumerate(limits):
+        outer_vars = order[depth + 1 :]
+
+        def make(lo: Any = lo, hi: Any = hi, outer_vars: list[str] = outer_vars) -> Any:
+            def rng(*outer_vals: float) -> list[float]:
+                outer = {outer_vars[j]: outer_vals[j] for j in range(len(outer_vars))}
+                return [bound_value(lo, outer), bound_value(hi, outer)]
+            return rng
+
+        ranges.append(make())
+    try:
+        from scipy.integrate import nquad
+
+        numeric, _err = nquad(integrand, ranges)
+    except Exception as exc:
+        return VerificationCheck(name=name, ok=False, detail=f"cubature failed: {exc}")
+    ok = abs(numeric - stated) <= max(1e-5 * abs(stated), 1e-7)
+    return VerificationCheck(
+        name=name, ok=ok,
+        detail=f"symbolic {stated:.10g} vs cubature {numeric:.10g}"
+        + ("" if ok else " — disagreement; withholding the answer"),
+    )
+
+
+_CONSTANT_NAME = re.compile(r"^[Cc]\d+$")
+
+
+def _check_ode_residual(
+    template: Template, result: ExecutionResult, setup: Mapping[str, Any]
+) -> VerificationCheck:
+    """The ODE solution's independent check (E2.17): substitute it back into the
+    equation — the residual must be identically zero — and confirm the constant count
+    (two for a general solution, none for an IVP). Not a string match: general
+    solutions differ in form (constant naming, term order)."""
+    name = "ode-substitution"
+    ode_expr, y, _x, _dependent = parse_ode(setup)
+    computed = str(result.value)
+    try:
+        names = expr_symbols(computed)
+        solution = parse_formula(computed, names)
+    except Exception as exc:
+        return VerificationCheck(
+            name=name, ok=False, detail=f"could not parse the solution: {exc}"
+        )
+    try:  # substitute y(x) → solution everywhere (derivatives included), then evaluate
+        residual = sympy.simplify(ode_expr.subs(y, solution).doit())
+    except Exception as exc:
+        return VerificationCheck(name=name, ok=False, detail=f"could not substitute: {exc}")
+    constants = sorted(str(s) for s in solution.free_symbols if _CONSTANT_NAME.match(str(s)))
+    expected_constants = 0 if setup.get("ivp") is not None else 2
+    if residual != 0:
+        return VerificationCheck(
+            name=name, ok=False,
+            detail=f"the solution does not satisfy the ODE (residual {sympy.sstr(residual)})"
+            " — withholding the answer",
+        )
+    if len(constants) != expected_constants:
+        return VerificationCheck(
+            name=name, ok=False,
+            detail=f"expected {expected_constants} arbitrary constant(s), found"
+            f" {len(constants)} ({', '.join(constants) or 'none'}) — withholding",
+        )
+    return VerificationCheck(
+        name=name, ok=True,
+        detail=f"substitutes to zero with {expected_constants} arbitrary constant(s)",
+    )
+
+
 def _verify_symbolic(
     template: Template, setup: Mapping[str, Any]
 ) -> VerifiedExecution:
-    """Symbolic operations carry built-in checks (E1.5/E2.5/E2.13/E2.16) in place of
-    the declarative hooks: solve → substitution, differentiate → difference quotient,
-    integrate → derivative (or quadrature when definite), limit → approach sequence,
-    solve_inequality → test points, parametric_slope → central difference,
-    taylor_polynomial → the derivative table, series_convergence → term behavior."""
+    """Symbolic operations carry built-in checks (E1.5/E2.5/E2.13/E2.16/E2.17) in
+    place of the declarative hooks: solve → substitution, differentiate → difference
+    quotient, integrate → derivative (or quadrature when definite), limit → approach
+    sequence, solve_inequality → test points, parametric_slope → central difference,
+    taylor_polynomial → the derivative table, series_convergence → term behavior, and
+    the multivariable family → finite differences / cubature / ODE substitution."""
     result = execute_template(template, {}, setup=setup)
     assert isinstance(template.method, SymbolicMethod)  # dispatcher guards
-    if template.method.operation == "solve":
+    operation = template.method.operation
+    if operation == "solve":
         check = _check_substitution(template, result, setup)
-    elif template.method.operation == "differentiate":
+    elif operation == "differentiate":
         check = _check_difference_quotient(template, result, setup)
-    elif template.method.operation == "limit":
+    elif operation == "limit":
         check = _check_limit_approach(template, result, setup)
-    elif template.method.operation == "solve_inequality":
+    elif operation == "solve_inequality":
         check = _check_interval_testpoints(template, result, setup)
-    elif template.method.operation == "parametric_slope":
+    elif operation == "parametric_slope":
         check = _check_parametric_difference(template, result, setup)
-    elif template.method.operation == "taylor_polynomial":
+    elif operation == "taylor_polynomial":
         check = _check_taylor_coefficients(template, result, setup)
-    elif template.method.operation == "series_convergence":
+    elif operation == "series_convergence":
         check = _check_term_behavior(template, result, setup)
+    elif operation == "partial_derivative":
+        check = _check_partial_fd(template, result, setup)
+    elif operation == "directional_derivative":
+        check = _check_directional_fd(template, result, setup)
+    elif operation in ("gradient", "divergence", "curl"):
+        check = _check_vector_fd(template, result, setup)
+    elif operation == "integrate_multiple":
+        check = _check_multiple_cubature(template, result, setup)
+    elif operation == "ode_solve":
+        check = _check_ode_residual(template, result, setup)
     elif setup.get("limits") is not None:  # definite/improper integration (E2.13)
         check = _check_quadrature(template, result, setup)
     else:

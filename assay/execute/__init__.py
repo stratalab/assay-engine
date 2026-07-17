@@ -68,10 +68,12 @@ __all__ = [
     "execute_ir",
     "execute_template",
     "ir_input_pairs",
+    "multivariable_expression",
     "normalize_expression",
     "parametric_problem",
     "parse_bound",
     "parse_formula",
+    "parse_ode",
     "parse_problem",
     "parse_series_term",
     "render_solution_set",
@@ -630,18 +632,425 @@ def _execute_series_convergence(
     return _result(render_solution_set(interval), radius)
 
 
+# --- the multivariable operation family (E2.17, chisel round 9) ------------------
+#
+# The keystone is a multivariable-aware parse: the ordinary safe gate already accepts
+# any free-symbol SET (parse_formula takes a name set), so the only change is to stop
+# forcing exactly one variable. Every operation below is one or two SymPy calls on top
+# of that — the whitelist is untouched.
+
+
+def multivariable_expression(
+    raw: Any, declared: set[str] | None = None
+) -> tuple[Any, dict[str, sympy.Symbol]]:
+    """Parse an expression in one or more variables through the ordinary safe gate.
+    Returns ``(expression, {name: Symbol})`` over the variable universe: the
+    expression's free symbols when ``declared`` is None, else ``declared`` (with the
+    free symbols required to be a subset — a stray symbol is a bug, named)."""
+    if not isinstance(raw, str) or not raw.strip():
+        raise InputError("this operation needs a non-empty 'expression' string")
+    try:
+        names = expr_symbols(raw)
+    except ValueError as exc:
+        raise UnsafeExpressionError(f"expression rejected: {exc}") from exc
+    if declared is not None and (extra := sorted(names - declared)):
+        raise InputError(
+            "the expression uses symbols outside the declared variables:"
+            f" {', '.join(extra)}"
+        )
+    universe = declared if declared is not None else names
+    expression = parse_formula(raw, universe)
+    return expression, {name: sympy.Symbol(name) for name in universe}
+
+
+def _named_variables(setup: Mapping[str, Any], key: str = "variables") -> list[str]:
+    variables = setup.get(key)
+    if (
+        not isinstance(variables, list)
+        or not variables
+        or not all(isinstance(v, str) and v.isidentifier() for v in variables)
+        or len(set(variables)) != len(variables)
+    ):
+        raise InputError(f"setup {key!r} must be a list of distinct variable names")
+    return variables
+
+
+def _point_coordinate(raw: Any) -> float:
+    """A point coordinate: a number, or a constant expression (``sqrt(5)``, ``pi/2``)
+    through the safe gate (no free symbols)."""
+    if isinstance(raw, int | float) and not isinstance(raw, bool):
+        return float(raw)
+    if isinstance(raw, str):
+        try:
+            return float(parse_formula(raw, set()))
+        except Exception as exc:
+            raise InputError(f"point value {raw!r} is not a constant number: {exc}") from exc
+    raise InputError(f"point value {raw!r} must be a number or a constant expression")
+
+
+def _point_at(
+    setup: Mapping[str, Any], symbols: Mapping[str, sympy.Symbol]
+) -> dict[Any, Any] | None:
+    raw = setup.get("point")
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise InputError("setup 'point' must be a mapping {variable: value}")
+    if unknown := sorted(set(raw) - set(symbols)):
+        raise InputError(f"'point' names non-variables: {', '.join(unknown)}")
+    return {symbols[name]: sympy.Float(_point_coordinate(value)) for name, value in raw.items()}
+
+
+def _scalar_at_point(expression: Any, point: dict[Any, Any]) -> float:
+    value = expression.subs(point)
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ExecutionError(
+            f"the point does not reduce the result to a number (left {sympy.sstr(value)})"
+            " — supply every variable (A-12)"
+        ) from exc
+
+
+# SymPy renders Euler's number as a bare ``E``, outside our grammar (E would parse as
+# an undeclared symbol); rewrite it to the whitelisted ``exp(1)`` so exact results stay
+# parseable and comparable. Standalone uppercase E only — not float exponents (1.0e-5
+# uses lowercase e) or identifiers.
+_EULER_E = re.compile(r"(?<![A-Za-z0-9_.])E(?![A-Za-z0-9_])")
+
+
+def _grammar_render(expression: Any) -> str:
+    return _EULER_E.sub("exp(1)", sympy.sstr(expression))
+
+
+def _symbolic_or_numeric(expression: Any, point: dict[Any, Any] | None) -> float | str:
+    if point is not None:
+        return _scalar_at_point(expression, point)
+    if not expression.free_symbols and expression.is_number:  # an exact constant → a number
+        constant: float = float(expression)
+        return constant
+    return _grammar_render(expression)
+
+
+def _execute_partial_derivative(
+    template: Template, setup: Mapping[str, Any]
+) -> ExecutionResult:
+    """∂f/∂x… (E2.17): ``wrt`` is the differentiation chain — one name, a repeated
+    name for a higher partial, or distinct names for a mixed one; exactly
+    ``sympy.diff(expr, *wrt)``. Optional ``point`` evaluates it to a number."""
+    expression, symbols = multivariable_expression(setup.get("expression"))
+    wrt = setup.get("wrt")
+    if not isinstance(wrt, list) or not wrt or not all(isinstance(w, str) for w in wrt):
+        raise InputError("setup 'wrt' must be a non-empty list of variable names")
+    if bad := [w for w in wrt if w not in symbols]:
+        raise InputError(f"'wrt' names non-variables: {', '.join(sorted(set(bad)))}")
+    derivative = sympy.simplify(sympy.diff(expression, *[symbols[w] for w in wrt]))
+    point = _point_at(setup, symbols)
+    return ExecutionResult(
+        output=template.output.name,
+        values=[
+            ExecutedValue(
+                label=template.output.name,
+                value=_symbolic_or_numeric(derivative, point),
+            )
+        ],
+    )
+
+
+def _gradient_components(
+    expression: Any, variables: list[str], point: dict[Any, Any] | None
+) -> list[float | str]:
+    components = [sympy.simplify(sympy.diff(expression, sympy.Symbol(v))) for v in variables]
+    return [_symbolic_or_numeric(component, point) for component in components]
+
+
+def _execute_gradient(template: Template, setup: Mapping[str, Any]) -> ExecutionResult:
+    """∇f (E2.17): the ``variables`` list fixes the component order; each component is
+    a partial. Vector-valued — one ``ExecutedValue`` per variable, in order."""
+    variables = _named_variables(setup)
+    expression, symbols = multivariable_expression(setup.get("expression"), set(variables))
+    point = _point_at(setup, symbols)
+    components = _gradient_components(expression, variables, point)
+    return ExecutionResult(
+        output=template.output.name,
+        values=[
+            ExecutedValue(label=f"grad_{v}", value=component)
+            for v, component in zip(variables, components, strict=True)
+        ],
+    )
+
+
+def _execute_directional_derivative(
+    template: Template, setup: Mapping[str, Any]
+) -> ExecutionResult:
+    """D_û f = ∇f · û (E2.17): ``direction`` is a raw vector, normalized to a unit
+    vector (a zero vector refuses by name)."""
+    variables = _named_variables(setup)
+    expression, symbols = multivariable_expression(setup.get("expression"), set(variables))
+    direction = setup.get("direction")
+    if (
+        not isinstance(direction, list)
+        or len(direction) != len(variables)
+        or not all(isinstance(d, int | float) and not isinstance(d, bool) for d in direction)
+    ):
+        raise InputError(
+            "setup 'direction' must be a list of numbers, one per variable"
+        )
+    norm = sympy.sqrt(sum(sympy.Integer(0) + sympy.Rational(str(d)) ** 2 for d in direction))
+    if norm == 0:
+        raise ExecutionError(
+            "the direction is the zero vector — no direction to differentiate along (A-12)"
+        )
+    unit = [sympy.Rational(str(d)) / norm for d in direction]
+    gradient = [sympy.diff(expression, sympy.Symbol(v)) for v in variables]
+    derivative = sympy.simplify(sum(g * u for g, u in zip(gradient, unit, strict=True)))
+    point = _point_at(setup, symbols)
+    return ExecutionResult(
+        output=template.output.name,
+        values=[
+            ExecutedValue(
+                label=template.output.name,
+                value=_symbolic_or_numeric(derivative, point),
+            )
+        ],
+    )
+
+
+def _bound_expression(raw: Any, allowed: set[str]) -> Any:
+    """An integration bound (E2.17): a number, ``"oo"``/``"-oo"``, or an expression in
+    the OUTER variables (that is what makes a general region)."""
+    if isinstance(raw, int | float) and not isinstance(raw, bool):
+        return sympy.Float(raw) if isinstance(raw, float) else sympy.Integer(raw)
+    if isinstance(raw, str) and raw.strip() in {"oo", "inf"}:
+        return sympy.oo
+    if isinstance(raw, str) and raw.strip() in {"-oo", "-inf"}:
+        return -sympy.oo
+    if isinstance(raw, str):
+        return parse_formula(raw, allowed)
+    raise InputError(f"integration bound {raw!r} must be a number, 'oo'/'-oo', or an expression")
+
+
+def _multiple_limits(setup: Mapping[str, Any]) -> list[tuple[str, Any, Any]]:
+    limits = setup.get("limits")
+    if not isinstance(limits, list) or not limits:
+        raise InputError("setup 'limits' must be a non-empty list of [var, lo, hi]")
+    order = [entry[0] for entry in limits if isinstance(entry, list) and entry]
+    parsed: list[tuple[str, Any, Any]] = []
+    for depth, entry in enumerate(limits):
+        if not isinstance(entry, list) or len(entry) != 3 or not isinstance(entry[0], str):
+            raise InputError("each 'limits' entry must be [var, lo, hi]")
+        var, lo, hi = entry
+        outer = set(order[depth + 1 :])  # a bound may reference only OUTER variables
+        parsed.append((var, _bound_expression(lo, outer), _bound_expression(hi, outer)))
+    return parsed
+
+
+def _execute_integrate_multiple(
+    template: Template, setup: Mapping[str, Any]
+) -> ExecutionResult:
+    """An iterated integral (E2.17): nest the existing definite integration, inner →
+    outer. Bounds may depend on the outer variables (a general region); the coordinate
+    Jacobian is folded into the integrand upstream (round-9 design)."""
+    limits = _multiple_limits(setup)
+    variables = {var for var, _lo, _hi in limits}
+    expression, _symbols = multivariable_expression(setup.get("expression"), variables)
+    result = expression
+    for var, lo, hi in limits:  # inner first
+        try:
+            result = sympy.integrate(result, (sympy.Symbol(var), lo, hi))
+        except (NotImplementedError, ValueError) as exc:
+            raise ExecutionError(f"cannot integrate this symbolically: {exc}") from exc
+        if result.has(sympy.Integral):
+            raise ExecutionError(
+                "no closed form for this iterated integral — refusing to guess (A-12)"
+            )
+    if result is sympy.nan or result.has(sympy.zoo):
+        raise ExecutionError("the integral does not converge to a stated value (A-12)")
+    value: float | str = (
+        float(result)
+        if isinstance(result, sympy.Rational | sympy.Float)
+        else _grammar_render(result)  # exact irrationals (pi/2, exp(1) − 1) stay exact
+    )
+    return ExecutionResult(
+        output=template.output.name,
+        values=[ExecutedValue(label=template.output.name, value=value)],
+    )
+
+
+def _vector_field(
+    setup: Mapping[str, Any]
+) -> tuple[list[Any], list[str], dict[str, Any], dict[Any, Any] | None]:
+    variables = _named_variables(setup)
+    if len(variables) not in (2, 3):
+        raise InputError("a vector field needs two or three variables")
+    field = setup.get("field")
+    if (
+        not isinstance(field, list)
+        or len(field) != len(variables)
+        or not all(isinstance(component, str) for component in field)
+    ):
+        raise InputError(
+            "setup 'field' must be a list of component expressions, one per variable"
+        )
+    symbols = {v: sympy.Symbol(v) for v in variables}
+    components = [
+        multivariable_expression(component, set(variables))[0] for component in field
+    ]
+    point = _point_at(setup, symbols)
+    return components, variables, symbols, point
+
+
+def _execute_divergence(template: Template, setup: Mapping[str, Any]) -> ExecutionResult:
+    """∇·F (E2.17): Σᵢ ∂Fᵢ/∂xᵢ — a scalar."""
+    components, variables, symbols, point = _vector_field(setup)
+    divergence = sympy.simplify(
+        sum(sympy.diff(components[i], symbols[variables[i]]) for i in range(len(variables)))
+    )
+    return ExecutionResult(
+        output=template.output.name,
+        values=[
+            ExecutedValue(
+                label=template.output.name,
+                value=_symbolic_or_numeric(divergence, point),
+            )
+        ],
+    )
+
+
+def _execute_curl(template: Template, setup: Mapping[str, Any]) -> ExecutionResult:
+    """∇×F (E2.17): the 3-vector [R_y−Q_z, P_z−R_x, Q_x−P_y]; a 2-D field [P, Q]
+    returns [0, 0, Q_x−P_y] (the textbook scalar k-component) for a stable shape."""
+    components, variables, symbols, point = _vector_field(setup)
+    if len(variables) == 2:
+        (p, q), (x, y) = components, [symbols[v] for v in variables]
+        curl = [sympy.Integer(0), sympy.Integer(0), sympy.diff(q, x) - sympy.diff(p, y)]
+    else:
+        (p, q, r), (x, y, z) = components, [symbols[v] for v in variables]
+        curl = [
+            sympy.diff(r, y) - sympy.diff(q, z),
+            sympy.diff(p, z) - sympy.diff(r, x),
+            sympy.diff(q, x) - sympy.diff(p, y),
+        ]
+    curl = [sympy.simplify(component) for component in curl]
+    return ExecutionResult(
+        output=template.output.name,
+        values=[
+            ExecutedValue(label=f"curl_{axis}", value=_symbolic_or_numeric(component, point))
+            for axis, component in zip("xyz", curl, strict=True)
+        ],
+    )
+
+
+_CONSTANT_NAME = re.compile(r"^[Cc]\d+$")
+
+
+def parse_ode(setup: Mapping[str, Any]) -> tuple[Any, Any, Any, str]:
+    """Parse a second-order ODE in ``y, y', y''`` notation (E2.17). Returns
+    ``(ode_expr_equal_zero, dependent_function, independent_symbol, dependent_name)``.
+    The dependent variable is the primed base; the independent one is ``setup
+    'variable'`` or a sensible default (``t`` when the dependent is ``x``, else ``x``)."""
+    equation = setup.get("equation")
+    if not isinstance(equation, str) or not equation.strip():
+        raise InputError("this operation needs setup 'equation' (a non-empty string)")
+    sides = [side.strip() for side in equation.split("=")]
+    if len(sides) > 2 or any(not side for side in sides):
+        raise InputError(f"malformed ODE {equation!r} — expected 'lhs' or 'lhs = rhs'")
+    primed = re.findall(r"([A-Za-z_]\w*)'", equation)
+    if not primed or len(set(primed)) != 1:
+        raise InputError("the ODE must have exactly one primed dependent variable")
+    dependent = primed[0]
+    variable = setup.get("variable")
+    if variable is None:
+        variable = "t" if dependent == "x" else "x"
+    if not isinstance(variable, str) or not variable.isidentifier():
+        raise InputError("setup 'variable' must be a simple name")
+    tokens = {f"{dependent}_D2": f"{dependent}''", f"{dependent}_D1": f"{dependent}'"}
+    encoded_sides = []
+    for side in sides:
+        side = re.sub(rf"\b{dependent}''", f"{dependent}_D2", side)
+        side = re.sub(rf"\b{dependent}'", f"{dependent}_D1", side)
+        encoded_sides.append(side)
+    allowed = {f"{dependent}_D2", f"{dependent}_D1", dependent, variable}
+    parsed = [parse_formula(side, allowed) for side in encoded_sides]
+    lhs = parsed[0] - parsed[1] if len(parsed) == 2 else parsed[0]
+    x = sympy.Symbol(variable)
+    y = sympy.Function(dependent)(x)
+    substitution = {
+        sympy.Symbol(f"{dependent}_D2"): y.diff(x, 2),
+        sympy.Symbol(f"{dependent}_D1"): y.diff(x),
+        sympy.Symbol(dependent): y,
+    }
+    _ = tokens  # documents the encoding
+    return lhs.subs(substitution), y, x, dependent
+
+
+def _execute_ode_solve(template: Template, setup: Mapping[str, Any]) -> ExecutionResult:
+    """Solve a constant-coefficient second-order linear ODE symbolically (E2.17):
+    the general solution (two arbitrary constants) or, with ``ivp``, the specific
+    solution. Standalone machinery — ``sympy.dsolve``, verified by substitution."""
+    ode_expr, y, x, dependent = parse_ode(setup)
+    ics = None
+    ivp = setup.get("ivp")
+    if ivp is not None:
+        if not isinstance(ivp, dict):
+            raise InputError("setup 'ivp' must be a mapping of conditions")
+        ics = {}
+        for key, pair in ivp.items():
+            if (
+                not isinstance(pair, list)
+                or len(pair) != 2
+                or not all(isinstance(n, int | float) and not isinstance(n, bool) for n in pair)
+            ):
+                raise InputError(f"ivp[{key!r}] must be [x0, value]")
+            x0, value = sympy.Float(pair[0]), sympy.Float(pair[1])
+            if key == dependent:
+                ics[y.subs(x, x0)] = value
+            elif key == f"{dependent}'":
+                ics[y.diff(x).subs(x, x0)] = value
+            else:
+                raise InputError(
+                    f"ivp key {key!r} must be {dependent!r} or the primed derivative"
+                )
+    try:
+        solution = sympy.dsolve(sympy.Eq(ode_expr, 0), y, ics=ics)
+    except Exception as exc:
+        raise ExecutionError(f"cannot solve this ODE symbolically: {exc} (A-12)") from exc
+    if isinstance(solution, list):
+        raise ExecutionError("the ODE yielded multiple solution branches — refusing (A-12)")
+    return ExecutionResult(
+        output=template.output.name,
+        values=[ExecutedValue(label=template.output.name, value=sympy.sstr(solution.rhs))],
+    )
+
+
 def _execute_symbolic(template: Template, setup: Mapping[str, Any]) -> ExecutionResult:
     """Run a curated symbolic operation (E1.5). Deterministic: solutions are sorted
     (numeric ascending, then symbolic lexicographic); printing uses SymPy's ``sstr``."""
     assert isinstance(template.method, SymbolicMethod)  # execute_template dispatches
-    if template.method.operation == "solve_inequality":  # relational grammar (E2.13)
+    operation = template.method.operation
+    if operation == "solve_inequality":  # relational grammar (E2.13)
         return _execute_inequality(template, setup)
-    if template.method.operation == "parametric_slope":  # chisel round 8
+    if operation == "parametric_slope":  # chisel round 8
         return _execute_parametric_slope(template, setup)
-    if template.method.operation == "taylor_polynomial":  # E2.16, exhibit set A
+    if operation == "taylor_polynomial":  # E2.16, exhibit set A
         return _execute_taylor(template, setup)
-    if template.method.operation == "series_convergence":  # E2.16, exhibit set B
+    if operation == "series_convergence":  # E2.16, exhibit set B
         return _execute_series_convergence(template, setup)
+    if operation == "partial_derivative":  # E2.17, the keystone
+        return _execute_partial_derivative(template, setup)
+    if operation == "gradient":
+        return _execute_gradient(template, setup)
+    if operation == "directional_derivative":
+        return _execute_directional_derivative(template, setup)
+    if operation == "integrate_multiple":
+        return _execute_integrate_multiple(template, setup)
+    if operation == "divergence":
+        return _execute_divergence(template, setup)
+    if operation == "curl":
+        return _execute_curl(template, setup)
+    if operation == "ode_solve":
+        return _execute_ode_solve(template, setup)
+    assert isinstance(template.method, SymbolicMethod)  # narrow for the tail
     expression, symbol = symbolic_problem(template, setup)
     if template.method.operation == "limit":  # E2.13
         if "point" not in setup:
@@ -1123,6 +1532,59 @@ def execute_ir(ir: IR, template: Template) -> ExecutionResult:
     return execute_template(template, ir_input_pairs(ir, template), setup=ir.setup)
 
 
+def _check_ode_fixture(
+    template: Template, fixture: Any, computed_values: list[float | str], name: str
+) -> tuple[bool, str]:
+    """The ode_solve fixture check (E2.17): both the computed solution AND the fixture's
+    printed reference must SATISFY the equation (residual zero) with the right constant
+    count — general solutions aren't unique in form, so string-match is wrong. For an
+    IVP the solution is unique, so computed and reference must additionally coincide."""
+    expected = next(iter(fixture.expect.values()))
+    if not isinstance(expected, str):
+        return False, f"{name}: ode_solve expects a solution string"
+    ode_expr, y, x, _dep = parse_ode(fixture.setup)
+    ivp = fixture.setup.get("ivp") is not None
+    want_constants = 0 if ivp else 2
+
+    def satisfies(text: str) -> tuple[Any | None, bool, int]:
+        try:
+            solution = parse_formula(text, expr_symbols(text))
+        except Exception:
+            return None, False, -1
+        # normalize the reference's independent variable to our internal one
+        free_vars = [s for s in solution.free_symbols if not _CONSTANT_NAME.match(str(s))]
+        if len(free_vars) == 1 and free_vars[0] != x:
+            solution = solution.subs(free_vars[0], x)
+        residual = sympy.simplify(ode_expr.subs(y, solution).doit())
+        constants = [s for s in solution.free_symbols if _CONSTANT_NAME.match(str(s))]
+        return solution, residual == 0, len(constants)
+
+    computed, comp_ok, comp_n = satisfies(str(computed_values[0]))
+    reference, ref_ok, ref_n = satisfies(expected)
+    if not comp_ok or comp_n != want_constants:
+        return False, (
+            f"{name}: the computed solution {computed_values[0]!r} does not satisfy the"
+            f" ODE with {want_constants} constant(s)"
+        )
+    if not ref_ok or ref_n != want_constants:
+        return False, (
+            f"{name}: the fixture's reference {expected!r} does not satisfy the ODE —"
+            " check the printed answer"
+        )
+    unique_mismatch = (
+        ivp
+        and computed is not None
+        and reference is not None
+        and sympy.simplify(computed - reference) != 0
+    )
+    if unique_mismatch:
+        return False, (
+            f"{name}: computed {computed_values[0]!r} differs from the unique IVP"
+            f" solution {expected!r}"
+        )
+    return True, ""
+
+
 def _quietly_equal(left: str, right: str) -> bool:
     """``symbolically_equal`` that answers False (instead of raising) when either
     side isn't a parseable expression — interval notation compares by exact string
@@ -1131,6 +1593,30 @@ def _quietly_equal(left: str, right: str) -> bool:
         return symbolically_equal(left, right)
     except Exception:
         return False
+
+
+def _as_number(value: float | str) -> float | None:
+    """A result value as a float when it is one, or a numeric-string ("1", "pi/2")."""
+    if isinstance(value, float):
+        return value
+    try:
+        return float(parse_formula(value, expr_symbols(value)))
+    except Exception:
+        return None
+
+
+def _component_matches(got: float | str, want: float | str, tol: float) -> bool:
+    """One vector component (E2.17): string ↔ string by equivalence, and any pair
+    that reduces to numbers by tolerance — so a constant component is accepted whether
+    it arrives as a float or a numeric string, in either the result or the fixture."""
+    if isinstance(got, str) and isinstance(want, str) and (
+        got.strip() == want.strip() or _quietly_equal(got, want)
+    ):
+        return True
+    got_num, want_num = _as_number(got), _as_number(want)
+    if got_num is not None and want_num is not None:
+        return _within_tolerance(got_num, want_num, tol)
+    return False
 
 
 def _within_tolerance(computed: float, expected: float, tol: float) -> bool:
@@ -1213,6 +1699,35 @@ def _run_fixture(template: Template, fixture: Any, index: int) -> FixtureResult:
             )
         result = execute_template(template, fixture.inputs, setup=fixture.setup)
         computed_values: list[float | str] = [value.value for value in result.values]
+        is_vector = (
+            isinstance(template.method, SymbolicMethod)
+            and template.method.operation in ("gradient", "curl")
+        )
+        if is_vector and isinstance(expected, list):  # ordered, component-wise (E2.17)
+            if len(expected) != len(computed_values):
+                return FixtureResult(
+                    index=index, ok=False, computed=computed_values, expected=expected,
+                    tol=fixture.tol,
+                    detail=f"{name}: {len(computed_values)} components vs"
+                    f" {len(expected)} expected",
+                )
+            vector_failures: list[str] = []
+            for axis, (got, want) in enumerate(zip(computed_values, expected, strict=True)):
+                if not _component_matches(got, want, fixture.tol):
+                    vector_failures.append(f"component {axis}: {got!r} vs {want!r}")
+            return FixtureResult(
+                index=index, ok=not vector_failures, computed=computed_values,
+                expected=expected, tol=fixture.tol, detail="; ".join(vector_failures),
+            )
+        if (
+            isinstance(template.method, SymbolicMethod)
+            and template.method.operation == "ode_solve"
+        ):  # verified by SUBSTITUTION, not string-match (E2.17)
+            ok, detail = _check_ode_fixture(template, fixture, computed_values, name)
+            return FixtureResult(
+                index=index, ok=ok, computed=computed_values, expected=expected,
+                tol=fixture.tol, detail=detail,
+            )
         labelled = len(fixture.expect) > 1 or (
             len(result.values) > 1
             and next(iter(fixture.expect)) in {value.label for value in result.values}
@@ -1251,15 +1766,25 @@ def _run_fixture(template: Template, fixture: Any, index: int) -> FixtureResult:
                 isinstance(template.method, SymbolicMethod)
                 and template.method.operation == "solve_inequality"
             )
-            ok = (
-                len(computed_values) == 1
-                and isinstance(computed_values[0], str)
-                and (
-                    computed_values[0].strip() == expected.strip()  # canonical (E2.13)
-                    if is_interval
-                    else symbolically_equal(computed_values[0], expected)
-                )
+            scalar: float | str | None = (
+                computed_values[0] if len(computed_values) == 1 else None
             )
+            if isinstance(scalar, str):
+                ok = (
+                    scalar.strip() == expected.strip()  # canonical (E2.13)
+                    if is_interval
+                    else symbolically_equal(scalar, expected)
+                )
+            elif isinstance(scalar, float) and not is_interval:
+                # an exact rational/number reported as a float (e.g. 0.25) vs a
+                # symbolic-number string (e.g. "1/4", "pi/2") — compare numerically
+                try:
+                    target = float(parse_formula(expected, expr_symbols(expected)))
+                    ok = _within_tolerance(scalar, target, fixture.tol)
+                except Exception:
+                    ok = False
+            else:
+                ok = False
             detail = (
                 ""
                 if ok
